@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประวัติการขาย & สรุปรายรับ - ระบบ POS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Sarabun + Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        *, body, button, input, select, textarea, h1, h2, h3, h4, p, span, div {
+            font-family: 'Sarabun', 'Inter', sans-serif !important;
+        }
+        .line-clamp-1, .line-clamp-2 {
+            padding-top: 0.15rem;
+            line-height: 1.5 !important;
+        }
+        button, input, h1, h2, h3, p, span, td, th {
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen text-slate-800 p-4 sm:p-6">
+
+    <div class="max-w-7xl mx-auto space-y-5">
+        
+        <!-- ส่วนหัว & แถบกรองเวลา -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between bg-white p-5 sm:p-6 rounded-3xl shadow-2xs border border-slate-200/80 gap-4">
+            <div class="flex items-center gap-3.5">
+                <a href="index.html" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-700 transition active:scale-90 shadow-2xs" title="กลับหน้าขาย">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+                        <svg class="w-6 h-6 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <span>ประวัติการคิดเงิน & สรุปยอดขาย</span>
+                    </h1>
+                    <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <p class="text-xs sm:text-sm text-slate-400">ตรวจสอบยอดขาย กำไรสุทธิ และจำแนกตามช่องทางชำระเงิน</p>
+                        <span id="date-range-label" class="inline-flex items-center gap-1 px-3 py-0.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-600 border border-blue-100 whitespace-nowrap">
+                            <span>โหลดข้อมูล...</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ตัวกรองช่วงเวลา -->
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex bg-slate-100 p-1 rounded-2xl gap-1">
+                    <button onclick="setFilter('day', this)" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-blue-600 shadow-2xs transition cursor-pointer">วันนี้</button>
+                    <button onclick="setFilter('week', this)" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer">สัปดาห์นี้</button>
+                    <button onclick="setFilter('month', this)" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer">เดือนนี้</button>
+                    <button onclick="setFilter('year', this)" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer">ปีนี้</button>
+                    <button onclick="setFilter('all', this)" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer">ทั้งหมด</button>
+                </div>
+
+                <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl text-xs font-semibold text-slate-600">
+                    <svg class="w-4 h-4 text-slate-500 ml-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <input type="text" id="custom-date-picker" placeholder="วว/ดด/ปปปป" readonly 
+                           class="calendar-trigger bg-white px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs cursor-pointer text-center w-40">
+                </div>
+            </div>
+        </div>
+
+        <!-- การ์ด KPI -->
+        <div class="space-y-4">
+            <!-- แถว 1: ยอดขาย & กำไรสุทธิ -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gradient-to-br from-blue-50/70 via-white to-white p-5 sm:p-6 rounded-3xl border border-blue-100 shadow-2xs flex items-center justify-between relative overflow-hidden transition hover:shadow-md">
+                    <div class="space-y-1.5">
+                        <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">ยอดขายรวมทั้งหมด</span>
+                        <p id="stat-total-revenue" class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">฿0.00</p>
+                        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-100/70 text-blue-700 rounded-lg text-xs font-bold">
+                            <span>รวม <b id="stat-total-orders">0</b> บิล (<span id="stat-total-items">0</span> ชิ้น)</span>
+                        </div>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/20 flex-shrink-0">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 sm:p-6 rounded-3xl border border-emerald-100 shadow-2xs flex items-center justify-between relative overflow-hidden transition hover:shadow-md">
+                    <div class="space-y-1.5">
+                        <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">กำไรสุทธิ</span>
+                        <p id="stat-total-profit" class="text-3xl sm:text-4xl font-black text-emerald-600 tracking-tight">฿0.00</p>
+                        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-100/70 text-emerald-700 rounded-lg text-xs font-bold">
+                            <span>กำไรหลังหักต้นทุนสินค้า</span>
+                        </div>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/20 flex-shrink-0">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- แถว 2: 4 ช่องทางรับเงิน -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+                <!-- 1. เงินสด -->
+                <div class="bg-gradient-to-br from-teal-50/80 via-white to-white p-5 rounded-3xl border border-teal-100 shadow-2xs hover:shadow-md transition relative flex flex-col justify-between min-h-[105px]">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">เงินสด</span>
+                        <div class="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-1">
+                        <p id="stat-cash-revenue" class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight truncate">฿0.00</p>
+                        <p class="text-xs text-slate-400 font-medium mt-0.5">จำนวน <b id="stat-cash-count" class="font-bold text-slate-700">0</b> รายการ</p>
+                    </div>
+                </div>
+
+                <!-- 2. สแกน/โอน -->
+                <div class="bg-gradient-to-br from-indigo-50/80 via-white to-white p-5 rounded-3xl border border-indigo-100 shadow-2xs hover:shadow-md transition relative flex flex-col justify-between min-h-[105px]">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="text-xs font-bold text-indigo-700 uppercase tracking-wider">สแกน / โอน</span>
+                        <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-1">
+                        <p id="stat-transfer-revenue" class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight truncate">฿0.00</p>
+                        <p class="text-xs text-slate-400 font-medium mt-0.5">จำนวน <b id="stat-transfer-count" class="font-bold text-slate-700">0</b> รายการ</p>
+                    </div>
+                </div>
+
+                <!-- 3. โครงการรัฐ -->
+                <div class="bg-gradient-to-br from-sky-50/80 via-white to-white p-5 rounded-3xl border border-sky-100 shadow-2xs hover:shadow-md transition relative flex flex-col justify-between min-h-[105px]">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="text-xs font-bold text-sky-700 uppercase tracking-wider">โครงการรัฐ</span>
+                        <div class="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-1">
+                        <p id="stat-gov-revenue" class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight truncate">฿0.00</p>
+                        <p class="text-xs text-slate-400 font-medium mt-0.5">จำนวน <b id="stat-gov-count" class="font-bold text-slate-700">0</b> รายการ</p>
+                    </div>
+                </div>
+
+                <!-- 4. ติดเงิน -->
+                <div class="bg-gradient-to-br from-amber-50/80 via-white to-white p-5 rounded-3xl border border-amber-200 shadow-2xs hover:shadow-md transition relative flex flex-col justify-between min-h-[105px]">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="text-xs font-bold text-amber-800 uppercase tracking-wider">ติดเงิน</span>
+                        <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-1">
+                        <p id="stat-debt-revenue" class="text-xl sm:text-2xl font-black text-amber-600 tracking-tight truncate">฿0.00</p>
+                        <p class="text-xs text-slate-400 font-medium mt-0.5">จำนวน <b id="stat-debt-count" class="font-bold text-slate-700">0</b> รายการ</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ตารางแสดงข้อมูล + แท็บสลับมุมมอง -->
+        <div class="bg-white rounded-3xl border border-slate-200/80 shadow-2xs overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+                <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl flex-shrink-0">
+                    <button id="view-tab-bills" onclick="switchHistoryView('bills')" 
+                            class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-900 shadow-2xs transition flex items-center gap-1.5 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                        <span>ประวัติรายบิล</span>
+                    </button>
+                    <button id="view-tab-items" onclick="switchHistoryView('items')" 
+                            class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 cursor-pointer">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                        <span>สรุปกำไรรายสินค้า</span>
+                    </button>
+                </div>
+
+                <div id="payment-filters-container" class="flex flex-wrap items-center gap-1.5">
+                    <button onclick="setPaymentFilter('all', this)" class="pay-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-2xs transition flex items-center gap-1.5 cursor-pointer">
+                        <span>ทุกช่องทาง</span>
+                    </button>
+                    <button onclick="setPaymentFilter('cash', this)" class="pay-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer">
+                        <span>เงินสด</span>
+                    </button>
+                    <button onclick="setPaymentFilter('transfer', this)" class="pay-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer">
+                        <span>สแกน/โอน</span>
+                    </button>
+                    <button onclick="setPaymentFilter('gov', this)" class="pay-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer">
+                        <span>โครงการรัฐ</span>
+                    </button>
+                    <button onclick="setPaymentFilter('debt', this)" class="pay-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer">
+                        <span>ติดเงิน</span>
+                    </button>
+                </div>
+                
+                <div class="relative w-full md:w-72">
+                    <input type="text" id="search-history" placeholder="ค้นหาบิล, สินค้า, ลูกค้า..." 
+                           class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs transition">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[980px]">
+                    <thead id="history-table-head" class="bg-slate-50 text-slate-500 text-xs font-bold uppercase border-b border-slate-100">
+                        <tr>
+                            <th class="p-4 w-44">รหัสบิล / วัน-เวลา</th>
+                            <th class="p-4 text-center w-32">ช่องทางชำระเงิน</th>
+                            <th class="p-4">รายการสินค้า</th>
+                            <th class="p-4 text-center w-24">จำนวน</th>
+                            <th class="p-4 text-right w-32">ยอดรวมสุทธิ</th>
+                            <th class="p-4 text-right w-44">การรับเงิน / เงินทอน</th>
+                            <th class="p-4 text-center w-24">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="modal-container"></div>
+    <div id="confirm-modal-container"></div>
+
+    <script src="js/confirmModal.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/keyboard.js"></script>
+</body>
+</html>

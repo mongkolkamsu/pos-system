@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>พิมพ์ป้ายบาร์โค้ดและราคา</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    
+    <style>
+        *, body { font-family: 'Sarabun', 'Inter', sans-serif !important; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { 
+                background: white !important; 
+                padding: 6mm 6mm !important; 
+                margin: 0 !important; 
+            }
+            #print-area { 
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important; /* ล็อก 3 คอลัมน์ */
+                gap: 3mm !important; /* บีบช่องว่างระหว่างการ์ด */
+                padding: 0 !important; 
+            }
+            .tag-card { 
+                break-inside: avoid !important; 
+                page-break-inside: avoid !important;
+                border: 1.5px dashed #334155 !important; /* 🌟 รอยปะสีเข้มคมชัด ตัดง่าย 🌟 */
+                padding: 5px 8px !important;
+                box-shadow: none !important;
+                border-radius: 12px !important;
+            }
+            /* 🌟 ย่อขนาดเฉพาะตอนพิมพ์ เพื่อให้ดึงแถวที่ 4 ขึ้นมาได้พอดี (12 ชิ้น/หน้า) 🌟 */
+            .tag-card .tag-img-box {
+                height: 72px !important;
+                margin-bottom: 2px !important;
+            }
+            .tag-card p {
+                font-size: 11px !important;
+                min-height: 28px !important;
+                line-height: 1.2 !important;
+            }
+            .tag-card .tag-barcode-box {
+                min-height: 38px !important;
+                margin: 1px 0 !important;
+            }
+            .tag-card .tag-barcode-box svg {
+                height: 38px !important;
+            }
+            .tag-card .tag-price {
+                font-size: 17px !important;
+                padding-top: 2px !important;
+            }
+            .tag-unselected { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 sm:p-6 text-slate-800 antialiased">
+
+    <!-- แถบควบคุมด้านบน (ซ่อนอัตโนมัติตอนกดพิมพ์) -->
+    <div class="no-print max-w-6xl mx-auto bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm mb-6 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition active:scale-95 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                </a>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">พิมพ์ป้ายสินค้า / บาร์โค้ด</h1>
+                    <p class="text-xs text-slate-400 font-medium">แสดงรูปภาพ ชื่อสินค้า บาร์โค้ด และราคา</p>
+                </div>
+            </div>
+
+            <!-- กลุ่มปุ่มแอ็กชัน -->
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="handlePrintAction()" class="px-4 sm:px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-bold transition active:scale-95 shadow-md flex items-center gap-2 cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    <span>สั่งพิมพ์ (<span id="selected-count">0</span>)</span>
+                </button>
+                <button type="button" onclick="openExternalBrowser()" 
+                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    <span>เปิดพิมพ์ใน Chrome (มีพรีวิว)</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
+            <!-- ค้นหาชื่อ/บาร์โค้ด -->
+            <div class="relative flex-1 min-w-[200px]">
+                <input type="text" id="search-input" oninput="renderTags(true)" placeholder="ค้นหาชื่อสินค้า หรือรหัสบาร์โค้ด..." 
+                       class="w-full h-10 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium focus:outline-none focus:border-slate-400 transition">
+                <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+
+            <!-- ดรอปดาวน์หมวดหมู่สินค้าสไตล์ iOS ขอบมน -->
+            <div class="relative w-full sm:w-56 flex-shrink-0" id="category-dropdown-wrapper">
+                <input type="hidden" id="category-select" value="all">
+                <button type="button" id="category-dropdown-btn" onclick="toggleCategoryDropdown()" 
+                        class="w-full h-10 px-3.5 bg-slate-50 hover:bg-slate-100/70 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-slate-400 transition flex items-center justify-between cursor-pointer shadow-2xs">
+                    <span id="category-dropdown-label" class="truncate">ทุกหมวดหมู่สินค้า</span>
+                    <svg id="category-dropdown-arrow" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+
+                <div id="category-dropdown-menu" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 text-xs max-h-60 overflow-y-auto">
+                    <div id="category-dropdown-list"></div>
+                </div>
+            </div>
+
+            <!-- ตัวกรองรูปภาพ & ปุ่มเลือกทั้งหมด -->
+            <div class="flex items-center gap-3 flex-shrink-0">
+                <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                    <input type="checkbox" id="only-has-image" checked onchange="renderTags(true)" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
+                    <span>เฉพาะที่มีรูป</span>
+                </label>
+
+                <button type="button" onclick="toggleSelectAll()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95">
+                    เลือกทั้งหมด / ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- พื้นที่แสดงป้ายสินค้า (กริดพิมพ์) -->
+    <div id="print-area" class="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 pb-12">
+    </div>
+
+    <script>
+        let allProducts = [];
+        let categories = [];
+        let selectedIds = new Set();
+        
+        // 🌟 โหลดทีละ 40 รายการเพื่อไม่ให้กระตุก 🌟
+        let visibleProductLimit = 40;
+        let currentFilteredProducts = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const [resProd, resCat] = await Promise.all([
+                    fetch('/api/products'),
+                    fetch('/api/categories')
+                ]);
+                allProducts = await resProd.json();
+                categories = await resCat.json();
+
+                renderCategoryOptions();
+                
+                allProducts.forEach(p => {
+                    if (hasValidImage(p)) selectedIds.add(String(p.id).trim());
+                });
+
+                renderTags(true);
+            } catch (err) {
+                console.error('Fetch data error:', err);
+            }
+
+            // 🌟 เลื่อนลงล่างแล้วโหลดเพิ่มทีละ 40 รายการแบบลื่นไหล 🌟
+            window.addEventListener('scroll', () => {
+                if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 350) {
+                    if (visibleProductLimit < currentFilteredProducts.length) {
+                        visibleProductLimit += 40;
+                        renderTags(false);
+                    }
+                }
+            });
+        });
+
+        function renderCategoryOptions() {
+            const listContainer = document.getElementById('category-dropdown-list');
+            if (!listContainer || !Array.isArray(categories)) return;
+
+            let html = `
+                <div onclick="selectCategoryOption('all', 'ทุกหมวดหมู่สินค้า')" 
+                     class="px-3.5 py-2 hover:bg-slate-50 font-bold text-slate-800 cursor-pointer transition flex items-center justify-between border-b border-slate-50">
+                    <span>ทุกหมวดหมู่สินค้า</span>
+                </div>
+                <div onclick="selectCategoryOption('no_barcode', 'รายการที่ไม่มีบาร์โค้ด')" 
+                     class="px-3.5 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer transition flex items-center justify-between border-b border-slate-50">
+                    <span>รายการที่ไม่มีบาร์โค้ด</span>
+                </div>
+            `;
+
+            categories.forEach(cat => {
+                if (cat.key_name !== 'no_barcode' && cat.label_name !== 'รายการที่ไม่มีบาร์โค้ด') {
+                    const safeKey = cat.key_name.replace(/'/g, "\\'");
+                    const safeLabel = cat.label_name.replace(/'/g, "\\'");
+                    html += `
+                        <div onclick="selectCategoryOption('${safeKey}', '${safeLabel}')" 
+                             class="px-3.5 py-2 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition flex items-center justify-between border-b border-slate-50 last:border-b-0">
+                            <span>${cat.label_name}</span>
+                        </div>
+                    `;
+                }
+            });
+
+            listContainer.innerHTML = html;
+        }
+
+        function toggleCategoryDropdown() {
+            const menu = document.getElementById('category-dropdown-menu');
+            const arrow = document.getElementById('category-dropdown-arrow');
+            if (!menu) return;
+            menu.classList.toggle('hidden');
+            if (arrow) arrow.classList.toggle('rotate-180');
+        }
+
+        function selectCategoryOption(val, label) {
+            const hiddenInput = document.getElementById('category-select');
+            const labelEl = document.getElementById('category-dropdown-label');
+            if (hiddenInput) hiddenInput.value = val;
+            if (labelEl) labelEl.innerText = label;
+            toggleCategoryDropdown();
+            renderTags(true);
+        }
+
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('category-dropdown-wrapper');
+            const menu = document.getElementById('category-dropdown-menu');
+            const arrow = document.getElementById('category-dropdown-arrow');
+            if (wrapper && !wrapper.contains(e.target)) {
+                if (menu) menu.classList.add('hidden');
+                if (arrow) arrow.classList.remove('rotate-180');
+            }
+        });
+
+        function hasValidImage(product) {
+            const img = String(product.img || '').trim();
+            return img !== '' && !img.includes('placeholder.jpg') && !img.startsWith('data:image/svg+xml');
+        }
+
+        function getFormattedImgSrc(rawImg) {
+            if (!rawImg) return '';
+            if (rawImg.startsWith('images/') || rawImg.startsWith('/images/') || rawImg.startsWith('http') || rawImg.startsWith('data:')) {
+                return rawImg;
+            }
+            return `images/${rawImg}`;
+        }
+
+        function toggleSelectAll() {
+            const currentList = getFilteredProducts();
+            const allSelected = currentList.every(p => selectedIds.has(String(p.id).trim()));
+
+            currentList.forEach(p => {
+                const id = String(p.id).trim();
+                if (allSelected) selectedIds.delete(id);
+                else selectedIds.add(id);
+            });
+
+            renderTags(false);
+        }
+
+        function toggleCard(id) {
+            const cleanId = String(id).trim();
+            if (selectedIds.has(cleanId)) selectedIds.delete(cleanId);
+            else selectedIds.add(cleanId);
+            renderTags(false);
+        }
+
+        function getFilteredProducts() {
+            const keyword = document.getElementById('search-input')?.value.trim().toLowerCase() || '';
+            const selectedCat = document.getElementById('category-select')?.value || 'all';
+            const onlyHasImg = document.getElementById('only-has-image')?.checked;
+
+            return allProducts.filter(p => {
+                if (onlyHasImg && !hasValidImage(p)) return false;
+
+                if (selectedCat === 'no_barcode') {
+                    if (!(p.is_no_barcode == 1 || p.is_no_barcode === '1' || p.is_no_barcode === true)) return false;
+                } else if (selectedCat !== 'all') {
+                    if (p.category !== selectedCat) return false;
+                }
+
+                if (keyword) {
+                    const matchName = String(p.name || '').toLowerCase().includes(keyword);
+                    const matchId = String(p.id || '').toLowerCase().includes(keyword);
+                    if (!matchName && !matchId) return false;
+                }
+                return true;
+            });
+        }
+
+        function renderTags(resetLimit = true) {
+            if (resetLimit) visibleProductLimit = 40;
+
+            const container = document.getElementById('print-area');
+            currentFilteredProducts = getFilteredProducts();
+            const selectedCountEl = document.getElementById('selected-count');
+
+            const activeSelectedCount = currentFilteredProducts.filter(p => selectedIds.has(String(p.id).trim())).length;
+            if (selectedCountEl) selectedCountEl.innerText = activeSelectedCount;
+            if (!container) return;
+
+            if (currentFilteredProducts.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-400 text-sm font-semibold">ไม่พบรายการสินค้า</div>`;
+                return;
+            }
+
+            // ตัดเฉพาะจำนวนที่กำหนดมาวาด (ไม่วาด 700 รูปพร้อมกันจนค้าง)
+            const paginated = currentFilteredProducts.slice(0, visibleProductLimit);
+
+            container.innerHTML = paginated.map(item => {
+                const safeId = String(item.id).trim().replace(/'/g, "\\'");
+                const isSelected = selectedIds.has(String(item.id).trim());
+                const imgSrc = getFormattedImgSrc(item.img);
+                const priceNum = parseFloat(item.price) || 0;
+                const priceFormatted = priceNum.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                return `
+                    <div onclick="toggleCard('${safeId}')" 
+                         class="tag-card bg-white p-3.5 rounded-2xl border-2 ${isSelected ? 'border-blue-600 shadow-sm tag-selected' : 'border-slate-200 bg-slate-50/60 tag-unselected'} transition flex flex-col items-center justify-between text-center relative cursor-pointer select-none">
+                        
+                        <div class="no-print absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition ${isSelected ? 'bg-blue-600 text-white shadow-xs' : 'border-2 border-slate-300 bg-white'}">
+                            ${isSelected ? `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>` : ''}
+                        </div>
+
+                        <!-- 1. รูปภาพสินค้า -->
+                        <div class="tag-img-box w-full h-24 flex items-center justify-center p-1 mb-1">
+                            ${imgSrc ? `<img src="${imgSrc}" class="w-full h-full object-contain" onerror="this.style.display='none'">` : '<span class="text-xs text-slate-300">ไม่มีรูป</span>'}
+                        </div>
+
+                        <!-- 2. ชื่อสินค้า -->
+                        <p class="text-xs font-bold text-slate-800 line-clamp-2 w-full px-1 min-h-[34px] flex items-center justify-center leading-snug" title="${item.name}">
+                            ${item.name}
+                        </p>
+
+                        <!-- 3. บาร์โค้ด -->
+                        <div class="tag-barcode-box w-full flex flex-col items-center justify-center my-1 min-h-[46px]">
+                            <svg id="barcode-${safeId}" class="max-w-full"></svg>
+                        </div>
+
+                        <!-- 4. ราคาขาย -->
+                        <div class="w-full pt-1.5 border-t border-slate-100 flex items-center justify-center">
+                            <span class="tag-price text-xl font-black text-slate-900 tracking-tight leading-none">฿${priceFormatted}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // วาดเฉพาะการ์ดที่มองเห็นในหน้านั้นๆ
+            paginated.forEach(item => {
+                const cleanId = String(item.id).trim();
+                const svgSelector = `#barcode-${cleanId.replace(/'/g, "\\'")}`;
+                const isEAN13 = /^\d{13}$/.test(cleanId);
+                const format = isEAN13 ? "EAN13" : "CODE128";
+
+                try {
+                    JsBarcode(svgSelector, cleanId, {
+                        format: format,
+                        width: 1.4,
+                        height: 38,
+                        fontSize: 11,
+                        margin: 4,
+                        displayValue: true
+                    });
+                } catch (e) {
+                    try {
+                        JsBarcode(svgSelector, cleanId, {
+                            format: "CODE128",
+                            width: 1.3,
+                            height: 38,
+                            fontSize: 11,
+                            margin: 4,
+                            displayValue: true
+                        });
+                    } catch (err) {}
+                }
+            });
+        }
+
+        // 🌟 สั่งพิมพ์: ดึงรายการที่เลือกทั้งหมดมาเรนเดอร์ก่อนพิมพ์ 🌟
+        function handlePrintAction() {
+            visibleProductLimit = currentFilteredProducts.length;
+            renderTags(false);
+            setTimeout(() => {
+                window.print();
+            }, 120);
+        }
+
+        window.addEventListener('beforeprint', () => {
+            visibleProductLimit = currentFilteredProducts.length;
+            renderTags(false);
+        });
+
+        window.addEventListener('afterprint', () => {
+            visibleProductLimit = 40;
+            renderTags(false);
+        });
+
+        function openExternalBrowser() {
+            // 🌟 ดึง IP หรือ Domain ของเครื่องที่เปิดอยู่ปัจจุบันอัตโนมัติ (ไม่ล็อกตายตัวเป็น localhost)
+            window.open(`${window.location.origin}/print_tags.html`, '_blank');
+        }
+    </script>
+</body>
+</html>

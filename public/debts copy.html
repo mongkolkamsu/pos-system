@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สมุดบัญชีลูกหนี้ & รายการติดเงิน - ระบบ POS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Sarabun + Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        *, body, button, input, select, textarea, h1, h2, h3, h4, p, span, div {
+            font-family: 'Sarabun', 'Inter', sans-serif !important;
+        }
+        .line-clamp-1, .line-clamp-2 {
+            padding-top: 0.15rem;
+            line-height: 1.5 !important;
+        }
+        button, input, h1, h2, h3, p, span, td, th {
+            line-height: 1.5;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen text-slate-800 p-4 sm:p-6">
+
+    <div class="max-w-7xl mx-auto space-y-5">
+        
+        <!-- ส่วนหัวหน้าจอ -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-5 sm:p-6 rounded-3xl shadow-2xs border border-slate-200/80 gap-4">
+            <div class="flex items-center gap-3.5">
+                <a href="index.html" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-700 transition active:scale-90 shadow-2xs" title="กลับหน้าขาย">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+                        <svg class="w-6 h-6 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                        </svg>
+                        <span>สมุดบัญชีลูกหนี้ & รายการติดเงิน</span>
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-0.5">ตรวจสอบยอดหนี้คงค้าง ประวัติสินค้าที่นำไป และบันทึกรับชำระเงิน</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- ⭐️ ลิงก์ไปยัง history.html ⭐️ -->
+                <a href="history.html" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs sm:text-sm flex items-center gap-2 transition shadow-2xs">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    <span>ดูประวัติการขาย</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- การ์ดสถิติ 3 ใบ -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- 1. ยอดหนี้คงค้างรวม -->
+            <div class="bg-gradient-to-br from-amber-50/70 via-white to-white p-5 sm:p-6 rounded-3xl border border-amber-200/90 shadow-2xs flex items-center justify-between relative overflow-hidden transition hover:shadow-md">
+                <div class="space-y-1.5">
+                    <span class="text-xs font-bold text-amber-800 uppercase tracking-wider">ยอดหนี้ค้างชำระรวม</span>
+                    <p id="stat-total-remaining" class="text-2xl sm:text-3xl font-black text-amber-600 tracking-tight">฿0.00</p>
+                    <p class="text-xs text-slate-400 font-medium">จากลูกหนี้ทั้งหมด <span id="stat-debtor-count" class="font-bold text-slate-700">0</span> คน</p>
+                </div>
+                <div class="w-13 h-13 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20 flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- 2. ยอดที่ชำระคืนแล้วทั้งหมด -->
+            <div class="bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 sm:p-6 rounded-3xl border border-emerald-100/90 shadow-2xs flex items-center justify-between relative overflow-hidden transition hover:shadow-md">
+                <div class="space-y-1.5">
+                    <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">ชำระคืนแล้วทั้งหมด</span>
+                    <p id="stat-total-paid" class="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight">฿0.00</p>
+                    <p class="text-xs text-emerald-600 font-medium">เก็บเงินหนี้กลับคืนมาได้แล้ว</p>
+                </div>
+                <div class="w-13 h-13 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/20 flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- 3. ยอดหนี้สะสมตั้งแต่เปิดร้าน -->
+            <div class="bg-gradient-to-br from-slate-50 via-white to-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center justify-between relative overflow-hidden transition hover:shadow-md">
+                <div class="space-y-1.5">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">ยอดหนี้สะสมประวัติศาสตร์</span>
+                    <p id="stat-total-debt" class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">฿0.00</p>
+                    <p class="text-xs text-slate-400 font-medium">รวมยอดเงินที่มีการติดไว้ทั้งหมด</p>
+                </div>
+                <div class="w-13 h-13 rounded-2xl bg-slate-800 text-white flex items-center justify-center shadow-lg shadow-slate-800/20 flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- ตารางรายชื่อลูกหนี้ -->
+        <div class="bg-white rounded-3xl border border-slate-200/80 shadow-2xs overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <button onclick="setDebtorFilter('unpaid', this)" class="debt-tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-500 text-white shadow-2xs transition cursor-pointer">
+                        เฉพาะที่ค้างชำระ
+                    </button>
+                    <button onclick="setDebtorFilter('all', this)" class="debt-tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer">
+                        ทั้งหมด (รวมจ่ายครบแล้ว)
+                    </button>
+                </div>
+                
+                <div class="relative w-full sm:w-80">
+                    <input type="text" id="search-debtor" placeholder="ค้นหาชื่อลูกค้า หรือเบอร์โทร..." 
+                           class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs transition">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[760px]">
+                    <thead class="bg-slate-50 text-slate-500 text-xs font-bold uppercase border-b border-slate-100">
+                        <tr>
+                            <th class="p-4">วันที่ติดล่าสุด</th>
+                            <th class="p-4">ชื่อลูกค้า / เบอร์โทร</th>
+                            <th class="p-4 text-center">จำนวนบิล</th>
+                            <th class="p-4 text-right">ยอดคงค้าง</th>
+                            <th class="p-4 text-center">สถานะ</th>
+                            <th class="p-4 text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="debtor-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal Container -->
+    <div id="debt-modal-container"></div>
+    <div id="custom-modal-container"></div>
+
+    <script src="js/confirmModal.js"></script>
+    <script src="js/debts.js"></script>
+    <script src="js/keyboard.js"></script>
+</body>
+</html>

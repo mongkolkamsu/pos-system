@@ -1,0 +1,209 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    background-color: #f4f6f9;
+}
+
+/* คอนเทนเนอร์หลักเต็มหน้าจอ */
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+/* ฝั่งซ้าย 60% - สินค้า */
+.product-section {
+    flex: 0 0 60%;
+    padding: 20px;
+    background-color: #ffffff;
+    border-right: 2px solid #e0e0e0;
+    overflow-y: auto;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.product-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+}
+
+.product-card:hover {
+    transform: scale(1.02);
+    border-color: #007bff;
+}
+
+.product-card img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+/* ฝั่งขวา 40% - เครื่องคิดเลข/รายการ */
+.checkout-section {
+    flex: 0 0 40%;
+    padding: 20px;
+    background-color: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+}
+
+#barcode-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    margin: 15px 0;
+    border: 2px solid #007bff;
+    border-radius: 6px;
+}
+
+.cart-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.total-summary {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px solid #ddd;
+}
+
+.btn-checkout {
+    width: 100%;
+    padding: 15px;
+    background-color: #28a745;
+    color: white;
+    font-size: 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+/* เพิ่มช่องค้นหาและปุ่มหมวดหมู่ */
+.search-box input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.category-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.cat-btn {
+    padding: 6px 12px;
+    border: 1px solid #007bff;
+    background: #fff;
+    color: #007bff;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.cat-btn.active {
+    background: #007bff;
+    color: #fff;
+}
+
+/* ล็อกความสูงพื้นที่แสดงสินค้า ให้เลื่อน Scroll ขึ้น-ลงได้ */
+.product-section {
+    max-height: 100vh;
+    overflow-y: auto;
+}
+/* จัดการปุ่มหมวดหมู่ให้เลื่อนซ้าย-ขวาได้แถวเดียว */
+.category-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.cat-btn {
+    white-space: nowrap;
+    padding: 8px 14px;
+    border: 1px solid #007bff;
+    background: #fff;
+    color: #007bff;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.cat-btn.active {
+    background: #007bff;
+    color: #fff;
+}
+
+/* ฟอร์มเพิ่มสินค้า */
+.add-product-form {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.add-product-form h3 {
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.add-product-form form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.add-product-form input,
+.add-product-form select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.btn-add {
+    grid-column: 1 / -1;
+    padding: 10px;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.btn-add:hover {
+    background-color: #138496;
+}

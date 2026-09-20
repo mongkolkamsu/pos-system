@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ระบบคิดเงิน POS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Sarabun + Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        *, body, button, input, select, textarea, h1, h2, h3, h4, p, span, div {
+            font-family: 'Sarabun', 'Inter', sans-serif !important;
+        }
+        input[type="text"], input[type="search"] {
+            line-height: 1.65 !important;
+        }
+        #product-grid h3,
+        #product-grid p {
+            line-height: 2 !important;
+        }
+        #cart-items *, #cart-items {
+            line-height: 1.65 !important;
+        }
+        #cart-items td {
+            padding-top: 0.45rem !important;
+            padding-bottom: 0.45rem !important;
+            overflow: visible !important;
+        }
+        #cart-items p {
+            overflow: visible !important;
+            padding-top: 2px !important;
+        }
+
+        * {
+            scrollbar-width: auto;
+            scrollbar-color: #94a3b8 transparent;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent !important;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #94a3b8;
+            border-radius: 9999px;
+            border: none !important;
+            min-height: 40px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #64748b;
+        }
+
+        #category-scroll-list,
+        .no-scrollbar {
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
+        }
+        #category-scroll-list::-webkit-scrollbar,
+        .no-scrollbar::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        /* 🌟 สไตล์หน้าจอมือถือ (แนวตั้ง + แนวนอน) 🌟 */
+        @media (max-width: 1023px) {
+            #main-container {
+                flex-direction: column !important;
+            }
+            #pane-products, #pane-cart {
+                width: 100% !important;
+                border: none !important;
+                padding: 0.75rem !important;
+                padding-bottom: 4.5rem !important;
+            }
+            .mobile-hidden {
+                display: none !important;
+            }
+            .mobile-filter-compact {
+                width: 5.5rem !important;
+            }
+            .mobile-filter-compact button {
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+        }
+
+        /* 🌟 แก้บั๊กจอมือถือแนวนอน (Landscape Mode): ปลดล็อกการเลื่อนจอ 🌟 */
+        @media (max-height: 550px) and (orientation: landscape) {
+            body {
+                overflow-y: auto !important;
+                height: auto !important;
+                min-height: 100vh !important;
+            }
+            #main-container {
+                height: auto !important;
+                overflow: visible !important;
+            }
+            #pane-products, #pane-cart {
+                height: auto !important;
+                overflow: visible !important;
+                padding-bottom: 5.5rem !important;
+            }
+            #product-grid {
+                overflow-y: visible !important;
+                height: auto !important;
+                flex: none !important;
+            }
+            /* ย่อส่วนหัวให้กระชับ ประหยัดพื้นที่หน้าจอแนวนอน */
+            #pane-products > div:first-child {
+                padding: 0.6rem !important;
+                margin-bottom: 0.4rem !important;
+                gap: 0.5rem !important;
+            }
+        }
+        @keyframes scannerLaser {
+            0% { transform: translateY(-40px); opacity: 0.8; }
+            50% { transform: translateY(40px); opacity: 1; }
+            100% { transform: translateY(-40px); opacity: 0.8; }
+        }
+        .animate-laser {
+            animation: scannerLaser 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans h-screen overflow-hidden text-slate-800">
+
+    <div id="main-container" class="flex h-full">
+        <!-- ฝั่งซ้าย 60%: รายการสินค้าและเครื่องมือจัดการ -->
+        <section id="pane-products" class="w-[60%] flex flex-col p-4 sm:p-5 pb-0 sm:pb-0 h-full overflow-hidden border-r border-slate-200 bg-slate-100/50">
+
+            <!-- 🌟 แผงควบคุมส่วนหัวสไตล์ Modern App Card 🌟 -->
+            <div class="bg-white p-3 sm:p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-2.5 sm:space-y-3.5 flex-shrink-0 mb-2">
+                
+                <!-- แถวที่ 1: ชื่อหัวข้อ + เมนูนำทาง + ปุ่มแอ็กชัน -->
+                <div class="flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-2 sm:gap-3">
+                    
+                    <!-- ฝั่งซ้าย: หัวข้อ + ปุ่มสินค้าใหม่ -->
+                    <div class="flex items-center justify-between 2xl:justify-start gap-2 min-w-0 flex-shrink-0">
+                        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <!-- เปลี่ยนเป็นวงกลม (rounded-full) ให้เหมือนในรูป -->
+                            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#111827] text-white flex items-center justify-center font-bold shadow-2xs flex-shrink-0">
+                                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                                </svg>
+                            </div>
+                            <div class="min-w-0 flex-shrink-0">
+                                <div class="flex items-center gap-1.5 sm:gap-2">
+                                    <!-- เปลี่ยน leading-none เป็น leading-normal แก้สระจม -->
+                                    <h1 class="text-sm sm:text-lg font-bold text-slate-900 tracking-tight leading-normal truncate">รายการสินค้า</h1>
+                                    <span id="product-count" class="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/60">
+                                    </span>
+                                </div>
+                                <p class="hidden sm:block text-[11px] text-slate-400 font-medium mt-0.5 whitespace-nowrap leading-normal">จัดการแคตตาล็อกและสต็อกสินค้า</p>
+                            </div>
+                        </div>
+
+                        <!-- 🟢 ปุ่มสินค้าใหม่ (แสดงฝั่งขวาของแถวบนเมื่อย่อจอ) -->
+                        <button type="button" onclick="openAddModal()" 
+                                class="2xl:hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1 shadow-md shadow-emerald-600/20 cursor-pointer flex-shrink-0 whitespace-nowrap">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            <span>สินค้าใหม่</span>
+                        </button>
+                    </div>
+
+                    <!-- ฝั่งขวา: เมนูลัด 5 ปุ่ม -->
+                    <div class="grid grid-cols-5 sm:flex sm:items-center gap-1 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-inner w-full 2xl:w-auto">
+                        
+                        <!-- 1. ลูกหนี้ -->
+                        <a href="debts.html" title="สมุดบัญชีลูกหนี้" 
+                           class="px-1 sm:px-3 py-1 sm:py-1.5 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-800 rounded-xl text-[11px] sm:text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1 shadow-2xs border border-slate-200/50 whitespace-nowrap">
+                            <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-500 flex-shrink-0"></span>
+                            <span>ลูกหนี้</span>
+                        </a>
+
+                        <!-- 2. ประวัติ -->
+                        <a href="history.html" title="ประวัติการขาย" 
+                           class="px-1 sm:px-3 py-1 sm:py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-800 rounded-xl text-[11px] sm:text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1 shadow-2xs border border-slate-200/50 whitespace-nowrap">
+                            <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
+                            <span>ประวัติ</span>
+                        </a>
+
+                        <!-- 3. ของต้องซื้อ -->
+                        <a href="low_stock.html" title="ตรวจเช็คของต้องซื้อ" 
+                           class="px-1 sm:px-3 py-1 sm:py-1.5 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-800 rounded-xl text-[11px] sm:text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1 shadow-2xs border border-slate-200/50 whitespace-nowrap">
+                            <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-rose-500 flex-shrink-0"></span>
+                            <span><span class="hidden sm:inline">ของ</span>ต้องซื้อ</span>
+                        </a>
+
+                        <!-- 4. หมวดหมู่ -->
+                        <button type="button" onclick="openAddCategoryModal()" 
+                                class="px-1 sm:px-3 py-1 sm:py-1.5 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/60 font-bold rounded-xl text-[11px] sm:text-xs transition-all active:scale-95 flex items-center justify-center gap-1 shadow-2xs cursor-pointer whitespace-nowrap">
+                            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                            </svg>
+                            <span>หมวดหมู่</span>
+                        </button>
+
+                        <!-- 5. รับสต็อก -->
+                        <button type="button" onclick="openStockInModal()" 
+                                class="px-1 sm:px-3 py-1 sm:py-1.5 bg-sky-50/80 hover:bg-sky-100 text-sky-700 border border-sky-200/60 font-bold rounded-xl text-[11px] sm:text-xs transition-all active:scale-95 flex items-center justify-center gap-1 shadow-2xs cursor-pointer whitespace-nowrap">
+                            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                            <span>รับสต็อก</span>
+                        </button>
+                    </div>
+
+                    <!-- ปุ่มสินค้าใหม่สำหรับจอใหญ่ระดับ Full HD ขึ้นไป -->
+                    <button type="button" onclick="openAddModal()" 
+                            class="hidden 2xl:flex px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-2xl text-xs transition-all items-center gap-1.5 shadow-md shadow-emerald-600/25 cursor-pointer flex-shrink-0 whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                        <span>สินค้าใหม่</span>
+                    </button>
+                </div>
+                
+
+                <!-- แถวที่ 2: เครื่องมือค้นหา & ตัวกรองแบบ Flush Surface -->
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 mt-2">
+                    
+                    <!-- ส่วนที่ 1: ช่องค้นหา + ปุ่มกล้อง -->
+                    <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                        <div class="relative flex-1 min-w-0">
+                            <!-- แก้ไข: เอา h-9, h-10 ออก -> ใส่ py-2, py-2.5 และเปลี่ยนขอบเป็นโค้งมน (rounded-full) + ขอบส้มเวลา focus (focus:border-amber-500) -->
+                            <input type="text" id="search-product" placeholder="ค้นหาชื่อสินค้า หรือ รหัสบาร์โค้ด..." 
+                                class="w-full py-2 sm:py-2.5 pl-9 pr-14 bg-white hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-full text-xs sm:text-sm font-medium text-slate-800 transition leading-relaxed shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+
+                        <!-- 📷 ปุ่มเปิดกล้องสแกน -->
+                        <button type="button" onclick="openCameraScannerModal((code) => { 
+                                    const s = document.getElementById('search-product'); 
+                                    if (s) { s.value = code; applyProductFilters(); } 
+                                })" 
+                                title="สแกนค้นหาสินค้า" 
+                                class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-white hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200/90 flex items-center justify-center shadow-2xs transition active:scale-95 cursor-pointer flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2m-10 0H5a2 2 0 01-2-2v-2M4 12h16"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- ส่วนที่ 2: ดรอปดาวน์ตัวกรอง (บนมือถือแบ่งคนละครึ่ง 50/50 แถวล่าง / บนคอมต่อท้ายตามเดิม) -->
+                    <div class="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
+                        
+                        <!-- Dropdown หน่วยนับ -->
+                        <div class="relative flex-1 sm:w-30 sm:flex-initial">
+                            <input type="hidden" id="search-unit" value="">
+                            <button type="button" id="search-unit-btn" onclick="toggleSearchUnitDropdown()" 
+                                    class="w-full h-9 sm:h-10 px-3 sm:px-3.5 bg-slate-50/80 hover:bg-slate-50 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-slate-400 shadow-2xs transition flex items-center justify-between cursor-pointer">
+                                <span id="search-unit-label" class="truncate">ทุกหน่วยนับ</span>
+                                <svg id="search-unit-arrow" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+
+                            <div id="search-unit-menu" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1 text-xs max-h-48 overflow-y-auto">
+                                <div onclick="selectSearchUnit('')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-800 font-bold cursor-pointer transition">ทุกหน่วยนับ</div>
+                                <div onclick="selectSearchUnit('ชิ้น')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ชิ้น</div>
+                                <div onclick="selectSearchUnit('แพ็ค')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">แพ็ค</div>
+                                <div onclick="selectSearchUnit('ลัง')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ลัง</div>
+                                <div onclick="selectSearchUnit('ขวด')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ขวด</div>
+                                <div onclick="selectSearchUnit('กล่อง')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">กล่อง</div>
+                                <div onclick="selectSearchUnit('ซอง')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ซอง</div>
+                                <div onclick="selectSearchUnit('ถุง')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ถุง</div>
+                                <div onclick="selectSearchUnit('กระป๋อง')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">กระป๋อง</div>
+                                <div onclick="selectSearchUnit('โหล')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">โหล</div>
+                                <div onclick="selectSearchUnit('ขีด')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ขีด</div>
+                                <div onclick="selectSearchUnit('ฟอง')" class="px-3 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ฟอง</div>
+                            </div>
+                        </div>
+
+                        <!-- Dropdown เรียงลำดับ -->
+                        <div class="relative flex-1 sm:w-32 sm:flex-initial">
+                            <input type="hidden" id="sort-product" value="latest">
+                            <button type="button" id="sort-product-btn" onclick="toggleSortDropdown()" 
+                                    class="w-full h-9 sm:h-10 px-3 sm:px-3.5 bg-slate-50/80 hover:bg-slate-50 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-slate-400 shadow-2xs transition flex items-center justify-between cursor-pointer">
+                                <span id="sort-product-label" class="truncate">เพิ่มล่าสุด</span>
+                                <svg id="sort-product-arrow" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+
+                            <div id="sort-product-menu" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1 text-xs">
+                                <div onclick="selectSortOption('latest', 'เพิ่มล่าสุด')" class="px-3.5 py-1.5 hover:bg-slate-50 text-slate-800 font-bold cursor-pointer transition">เพิ่มล่าสุด</div>
+                                <div onclick="selectSortOption('index', 'ลำดับ')" class="px-3.5 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ลำดับ</div>
+                                <div onclick="selectSortOption('name_asc', 'ชื่อ ก - ฮ')" class="px-3.5 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ชื่อ ก - ฮ</div>
+                                <div onclick="selectSortOption('price_asc', 'ราคา ต่ำ - สูง')" class="px-3.5 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ราคา ต่ำ - สูง</div>
+                                <div onclick="selectSortOption('price_desc', 'ราคา สูง - ต่ำ')" class="px-3.5 py-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition">ราคา สูง - ต่ำ</div>
+                                <div onclick="selectSortOption('low_stock', 'สต็อกน้อยสุด')" class="px-3.5 py-1.5 hover:bg-rose-50 text-rose-600 font-bold cursor-pointer transition">สต็อกน้อยสุด</div>
+                                <div onclick="selectSortOption('high_stock', 'สต็อกมากสุด')" class="px-3.5 py-1.5 hover:bg-emerald-50 text-emerald-700 font-bold cursor-pointer transition">สต็อกมากสุด</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- แถบหมวดหมู่สินค้า -->
+            <div class="flex items-center gap-1.5 flex-shrink-0 relative z-30 py-1 mb-1" id="category-bar"></div>
+
+            <!-- ตารางแสดงการ์ดสินค้า -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 min-[1800px]:grid-cols-5 min-[2400px]:grid-cols-6 gap-3.5 flex-1 min-h-0 overflow-y-auto pr-1 pb-6 content-start scroll-smooth" id="product-grid"></div>
+        </section>
+
+        <!-- ฝั่งขวา 40%: แผงคิดเงินสไตล์ iOS Clean Minimalist -->
+        <section id="pane-cart" class="mobile-hidden w-[40%] bg-slate-50/50 flex flex-col p-3.5 sm:p-4 h-full border-l border-slate-200/80 justify-between">
+    
+            <!-- ส่วนหัว: การ์ดลอยตัว iOS Header -->
+            <div class="bg-white p-3.5 rounded-3xl border border-slate-200/70 shadow-2xs space-y-2.5 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-2xs flex-shrink-0 border border-blue-100/60">
+                            <div class="w-5 h-5 bg-blue-600" 
+                                style="mask: url('icon/groceries.png') no-repeat center / contain; -webkit-mask: url('icon/groceries.png') no-repeat center / contain;">
+                            </div>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900 tracking-tight leading-none">รายการคิดเงิน</h2>
+                            <p class="text-[11px] text-slate-400 font-medium mt-0.5">ออเดอร์ปัจจุบันของคุณ</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 select-none">
+                        <!-- ปุ่มพักบิล -->
+                        <button type="button" onclick="holdCurrentBill()" title="พักบิลนี้ไว้ก่อน"
+                                class="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>พักบิล</span>
+                        </button>
+
+                        <!-- ปุ่มบิลค้าง พร้อมตัวเลข Badge -->
+                        <button type="button" onclick="openHeldBillsModal()" title="ดูบิลที่พักไว้"
+                                class="relative px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            <span>บิลค้าง</span>
+                            <span id="held-bills-count" class="hidden min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-black rounded-full items-center justify-center -ml-0.5">0</span>
+                        </button>
+
+                        <!-- ปุ่มล้างรายการ -->
+                        <button type="button" onclick="clearCart()" title="ล้างรายการทั้งหมด"
+                                class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 text-xs font-bold transition active:scale-95 flex items-center gap-1 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ช่องสแกนบาร์โค้ด -->
+                <div class="relative group">
+                    <input type="text" id="barcode-input" placeholder="สแกนบาร์โค้ด หรือพิมพ์รหัสสินค้า..." autofocus 
+                        class="w-full pl-9 pr-24 py-2.5 bg-slate-100/70 hover:bg-slate-100 focus:bg-white border border-transparent focus:border-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-100 rounded-2xl text-xs sm:text-sm font-semibold text-slate-800 transition shadow-inner">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-slate-700 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                    </svg>
+                    
+                    <!-- กลุ่มปุ่มขวา: ปุ่มเปิดกล้อง + ป้ายสถานะ -->
+                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                        <button type="button" onclick="openCameraScannerModal()" title="เปิดกล้องสแกน" 
+                                class="w-8 h-8 rounded-xl bg-white hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200/80 flex items-center justify-center shadow-2xs transition active:scale-95 cursor-pointer">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2m-10 0H5a2 2 0 01-2-2v-2M4 12h16"/>
+                            </svg>
+                        </button>
+                        <div class="hidden sm:flex items-center gap-1 bg-white border border-slate-200/80 px-2 py-1 rounded-lg shadow-2xs pointer-events-none">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="text-[10px] font-bold text-slate-700">พร้อม</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none pt-0.5">
+                    <span class="text-[11px] font-bold text-slate-400 whitespace-nowrap flex-shrink-0">ทางลัด:</span>
+                    
+                    <!-- 🌟 ปุ่มสินค้าอื่นๆ (ระบุราคาเอง) 🌟 -->
+                    <button type="button" onclick="openCustomItemModal()" 
+                            class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-700 border border-amber-200/80 rounded-xl text-[11px] font-bold transition flex items-center gap-1 whitespace-nowrap cursor-pointer shadow-2xs flex-shrink-0"
+                            title="ขายสินค้าอื่นๆ กำหนดราคาเอง">
+                        <span>🏷️ อื่นๆ</span>
+                    </button>
+
+                    <div id="dynamic-shortcuts-bar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar"></div>
+                    <button type="button" onclick="openShortcutConfigModal()" 
+                            class="w-6 h-6 bg-white hover:bg-slate-50 active:scale-95 text-slate-600 border border-slate-200/80 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer shadow-2xs flex-shrink-0"
+                            title="เพิ่มสินค้าเป็นทางลัด">
+                        <span>+</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- ส่วนกลาง: ตารางรายการในตะกร้า -->
+            <div class="flex-1 min-h-0 bg-white border border-slate-200/70 rounded-3xl overflow-hidden my-2 shadow-2xs flex flex-col">
+                <table class="w-full text-left border-collapse flex-shrink-0">
+                    <colgroup>
+                        <col style="width: 40px;">
+                        <col>
+                        <col style="width: 110px;">
+                        <col style="width: 95px;">
+                        <col style="width: 35px;">
+                    </colgroup>
+                    <thead class="bg-slate-50/90 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="py-2.5 px-3 text-center">#</th>
+                            <th class="py-2.5 px-3">รายการ</th>
+                            <th class="py-2.5 px-3 text-center">จำนวน</th>
+                            <th class="py-2.5 px-3 text-right">ราคารวม</th>
+                            <th class="py-2.5 px-3 text-center"></th>
+                        </tr>
+                    </thead>
+                </table>
+                
+                <div class="overflow-y-auto flex-1 min-h-0 w-full pr-1">
+                    <table class="w-full text-left border-collapse">
+                        <tbody id="cart-items" class="divide-y divide-slate-50 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ส่วนล่าง: สรุปยอดเงิน + ปุ่มชำระเงิน -->
+            <div class="bg-white p-3.5 rounded-3xl border border-slate-200/70 shadow-2xs flex-shrink-0 space-y-2">
+                <div class="space-y-1 px-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400 font-medium">
+                        <span>จำนวนรายการรวม</span>
+                        <span id="total-qty" class="font-bold text-slate-700">0 รายการ</span>
+                    </div>
+                    <div class="flex justify-between items-baseline pt-1 border-t border-slate-100">
+                        <span class="text-sm font-bold text-slate-800">ยอดรวมสุทธิ</span>
+                        <span id="total-price" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">฿0.00</span>
+                    </div>
+                </div>
+
+                <button type="button" onclick="openPaymentModal()" 
+                        class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold rounded-2xl text-sm sm:text-base shadow-md shadow-emerald-600/20 transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <span>ชำระเงิน</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- 🌟 แถบสลับหน้าจอด้านล่าง (แสดงเฉพาะบนมือถือ lg:hidden ไม่กระทบ PC 100%) 🌟 -->
+    <nav id="mobile-bottom-nav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.06)] select-none">
+        <button type="button" id="tab-btn-products" onclick="switchMobileView('products')" 
+                class="flex-1 py-1.5 flex flex-col items-center justify-center text-blue-600 font-bold text-xs transition active:scale-95 cursor-pointer">
+            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+            <span>รายการสินค้า</span>
+        </button>
+        <div class="w-px h-7 bg-slate-200"></div>
+        <button type="button" id="tab-btn-cart" onclick="switchMobileView('cart')" 
+                class="flex-1 py-1.5 flex flex-col items-center justify-center text-slate-500 font-bold text-xs transition active:scale-95 cursor-pointer relative">
+            <div class="relative">
+                <div class="w-5 h-5 bg-slate-500 mb-0.5" style="mask: url('icon/groceries.png') no-repeat center / contain; -webkit-mask: url('icon/groceries.png') no-repeat center / contain;"></div>
+                <span id="mobile-tab-badge" class="hidden absolute -top-1.5 -right-3 bg-rose-500 text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full items-center justify-center border-2 border-white">0</span>
+            </div>
+            <span id="mobile-tab-label">ตะกร้าคิดเงิน</span>
+        </button>
+    </nav>
+
+    <!-- Modal พรีวิวรูปภาพและบาร์โค้ด -->
+    <div id="image-view-modal" onclick="closeImagePreviewModal()" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden transition-opacity duration-150">
+        <div onclick="event.stopPropagation()" class="bg-white p-5 rounded-3xl shadow-2xl w-80 sm:w-96 flex flex-col items-center border border-slate-100 relative animate-in fade-in zoom-in-95">
+            <button onclick="closeImagePreviewModal()" title="ปิดหน้าต่าง" class="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="w-full h-64 flex items-center justify-center overflow-hidden rounded-2xl bg-white p-3 border border-slate-100 mt-2">
+                <img id="image-view-target" src="" alt="Preview" class="w-full h-full object-contain">
+            </div>
+            <p id="image-view-title" class="mt-3 text-base font-bold text-slate-800 text-center line-clamp-2 w-full"></p>
+            <span id="image-view-category" class="mt-1.5 px-3 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 text-xs font-bold rounded-full"></span>
+            <div class="mt-2.5 flex flex-col items-center justify-center w-full min-h-[55px] bg-white rounded-xl p-1">
+                <svg id="image-view-barcode" class="max-w-full"></svg>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ⚡ Modal จัดการรายการปุ่มทางลัด (สไตล์ iOS Clean Minimalist) -->
+    <div id="shortcut-config-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden transition-opacity duration-200">
+        <div class="bg-white w-full max-w-lg p-6 sm:p-7 rounded-[36px] shadow-2xl relative space-y-5 border border-slate-100 animate-in fade-in zoom-in-95 max-h-[88vh] flex flex-col">
+            
+            <!-- ส่วนหัว Modal -->
+            <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <!-- ไอคอนสายฟ้าสีส้มแบบวงกลม -->
+                    <div class="w-10 h-10 rounded-full bg-slate-50 text-orange-500 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <!-- แก้ไข leading-none เป็น leading-normal ป้องกันสระ/วรรณยุกต์โดนตัด -->
+                        <h3 class="text-[15px] font-bold text-slate-800 tracking-tight leading-normal mb-0.5">เลือกสินค้าทำปุ่มทางลัด</h3>
+                        <p class="text-[11px] text-slate-400 font-medium leading-normal">เลือกรายการที่ต้องการให้แสดงเป็นปุ่มด่วนด้านบน</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeShortcutConfigModal()" class="text-slate-400 hover:text-slate-600 hover:bg-slate-50 w-8 h-8 flex items-center justify-center rounded-full transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- ช่องค้นหา (ขอบโค้งมนแบบ Full) -->
+            <div class="relative flex-shrink-0 -mt-1">
+                <!-- แก้ไข: เอา h-11 ออก และใส่ py-2.5 กับ leading-relaxed เพื่อเว้นที่ให้สระบน/ล่าง -->
+                <input type="text" id="shortcut-search-input" placeholder="ค้นหาชื่อสินค้าเพื่อเพิ่มเป็นทางลัด..." 
+                    oninput="renderShortcutPickerList(this.value)"
+                    class="w-full py-2.5 pl-[38px] pr-4 bg-white hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-full text-xs sm:text-sm font-medium text-slate-700 focus:outline-none transition shadow-[0_2px_10px_rgba(0,0,0,0.02)] leading-relaxed">
+                <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+
+            <!-- ⚡ แถบตัวกรอง Custom UI สไตล์เดียวกับหน้าร้าน ⚡ -->
+            <div class="flex items-center gap-2 flex-shrink-0 relative z-20 select-none">
+                
+                <!-- 1. ดรอปดาวน์หมวดหมู่ -->
+                <div class="relative flex-1" id="shortcut-cat-wrapper">
+                    <input type="hidden" id="shortcut-filter-category" value="all">
+                    <button type="button" id="shortcut-cat-btn" onclick="toggleShortcutCatDropdown()"
+                            class="w-full h-10 px-3.5 pt-1 bg-slate-50/90 hover:bg-slate-100/70 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none shadow-2xs transition flex items-center justify-between cursor-pointer">
+                        <span id="shortcut-cat-label" class="truncate py-0.5 leading-normal">ทุกหมวดหมู่</span>
+                        <svg id="shortcut-cat-arrow" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    <div id="shortcut-cat-menu" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 max-h-56 overflow-y-auto text-xs">
+                        <!-- รายการหมวดหมู่จะโหลดเข้ามาอัตโนมัติ -->
+                    </div>
+                </div>
+
+                <!-- 2. ดรอปดาวน์สถานะการเพิ่มทางลัด -->
+                <div class="relative w-36 flex-shrink-0" id="shortcut-status-wrapper">
+                    <input type="hidden" id="shortcut-filter-status" value="all">
+                    <button type="button" id="shortcut-status-btn" onclick="toggleShortcutStatusDropdown()"
+                            class="w-full h-10 px-3.5 pt-1 bg-slate-50/90 hover:bg-slate-100/70 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none shadow-2xs transition flex items-center justify-between cursor-pointer">
+                        <span id="shortcut-status-label" class="truncate py-0.5 leading-normal">ทุกรายการ</span>
+                        <svg id="shortcut-status-arrow" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    <div id="shortcut-status-menu" class="hidden absolute right-0 top-full mt-1.5 w-40 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 text-xs">
+                        <div onclick="selectShortcutStatus('all', 'ทุกรายการ')" class="status-option px-3.5 py-2.5 bg-blue-50 text-blue-600 font-bold cursor-pointer transition leading-normal border-b border-slate-100/60">ทุกรายการ</div>
+                        <div onclick="selectShortcutStatus('added', 'เฉพาะที่เพิ่มแล้ว')" class="status-option px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition leading-normal border-b border-slate-100/60">เฉพาะที่เพิ่มแล้ว</div>
+                        <div onclick="selectShortcutStatus('not_added', 'ยังไม่ได้เพิ่ม')" class="status-option px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition leading-normal last:border-b-0">ยังไม่ได้เพิ่ม</div>
+                    </div>
+                </div>
+
+            </div>
+            <div id="shortcut-picker-list" class="space-y-2 overflow-y-auto flex-1 pr-1.5 max-h-[52vh] content-start"></div>
+        </div>
+    </div>
+
+    <!-- Modal: รายการบิลที่พักไว้ (Held Bills Modal) -->
+    <div id="held-bills-modal" onclick="if(event.target === this) closeHeldBillsModal()" 
+        class="fixed inset-0 z-[99999] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden transition-all duration-200">
+        <div class="bg-slate-100/95 backdrop-blur-2xl w-full max-w-md rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.25)] border border-white/60 overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+            
+            <div class="px-5 pt-4 pb-3 flex items-center justify-between border-b border-slate-200/60 bg-white/60 backdrop-blur-md">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-white shadow-2xs border border-slate-200/60 flex items-center justify-center text-slate-700">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm leading-tight tracking-tight">รายการบิลที่พักไว้</h3>
+                        <p class="text-[11px] text-slate-400 font-medium">แตะเลือกดึงบิลกลับมาคิดเงินต่อ</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeHeldBillsModal()" 
+                        class="w-7 h-7 bg-slate-200/70 hover:bg-slate-300 text-slate-600 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer shadow-2xs">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div id="held-bills-list" class="p-3 overflow-y-auto space-y-2 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            </div>
+        </div>
+    </div>
+
+    <div id="camera-scanner-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden transition-opacity duration-150">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-100 flex flex-col items-center relative animate-in fade-in zoom-in-95">
+            <div class="flex items-center justify-between w-full pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-xs">📷</div>
+                    <h3 class="font-bold text-sm text-slate-800">สแกนบาร์โค้ดสินค้า</h3>
+                </div>
+                <button type="button" onclick="closeCameraScannerModal()" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold transition">✕</button>
+            </div>
+
+            <!-- จอภาพกล้อง -->
+            <div class="w-full mt-3 rounded-2xl overflow-hidden bg-black border border-slate-200 relative min-h-[260px] flex items-center justify-center">
+                <div id="camera-reader-viewport" class="w-full h-full"></div>
+                <div class="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[2px] bg-rose-500 shadow-[0_0_10px_#f43f5e] z-20 opacity-90"></div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 mt-3 text-center">ส่องบาร์โค้ดบนสินค้าให้อยู่ในกรอบ ระบบจะยิงลงตะกร้าทันที</p>
+        </div>
+    </div>
+    <!-- 🏷️ Modal: ขายสินค้าอื่นๆ (ระบุราคาเอง) -->
+    <div id="custom-item-modal" onclick="if(event.target === this) closeCustomItemModal()" 
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden transition-opacity duration-200">
+        <div class="bg-white w-full max-w-sm p-5 sm:p-6 rounded-[28px] shadow-2xl relative space-y-4 border border-slate-100 animate-in fade-in zoom-in-95">
+            
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/60 flex items-center justify-center font-bold text-base shadow-2xs">
+                        🏷️
+                    </div>
+                    <div>
+                        <h3 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight">สินค้าอื่นๆ / กำหนดราคา</h3>
+                        <p class="text-[11px] text-slate-400 font-medium">ระบุราคาเพื่อเพิ่มลงตะกร้าคิดเงิน</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeCustomItemModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition active:scale-90 cursor-pointer">
+                    ✕
+                </button>
+            </div>
+
+            <div class="space-y-3 pt-1">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 mb-1">ชื่อรายการ (ไม่ระบุก็ได้)</label>
+                    <input type="text" id="custom-item-name" placeholder="สินค้าทั่วไป / อื่นๆ" 
+                        class="w-full h-10 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-slate-400 transition">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">ราคาขาย (บาท) <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-slate-400 text-base">฿</span>
+                        <input type="number" id="custom-item-price" step="any" placeholder="0.00" 
+                            class="w-full h-12 pl-8 pr-4 bg-slate-50 border-2 border-amber-300 focus:border-amber-500 focus:bg-white rounded-2xl text-xl font-black text-slate-900 focus:outline-none transition"
+                            onkeydown="if(event.key === 'Enter') confirmAddCustomItem()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+                <button type="button" onclick="closeCustomItemModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs transition cursor-pointer">
+                    ยกเลิก
+                </button>
+                <button type="button" onclick="confirmAddCustomItem()" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-md shadow-amber-500/20 cursor-pointer">
+                    + ใส่ตะกร้า
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-container"></div>
+    <div id="confirm-modal-container"></div>
+    <div id="payment-modal-container"></div>
+
+    <script src="js/products.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/categoryModal.js"></script>
+    <script src="js/stockInModal.js"></script>
+    <script src="js/keyboard.js"></script>
+    <script src="js/confirmModal.js"></script>
+    <script src="js/cart.js"></script>
+    <script src="js/paymentModal.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // 🌟 ระบบจัดการสินค้าอื่นๆ (ระบุราคาเอง) 🌟
+        function openCustomItemModal() {
+            const modal = document.getElementById('custom-item-modal');
+            const nameInput = document.getElementById('custom-item-name');
+            const priceInput = document.getElementById('custom-item-price');
+            if (!modal) return;
+
+            if (nameInput) nameInput.value = '';
+            if (priceInput) priceInput.value = '';
+
+            modal.classList.remove('hidden');
+            // โฟกัสไปที่ช่องใส่ราคาทันที เพื่อให้พิมพ์ตัวเลขได้เลย
+            setTimeout(() => {
+                if (priceInput) {
+                    priceInput.focus();
+                    priceInput.select();
+                }
+            }, 60);
+        }
+
+        function closeCustomItemModal() {
+            const modal = document.getElementById('custom-item-modal');
+            if (modal) modal.classList.add('hidden');
+            const barcodeInput = document.getElementById('barcode-input');
+            if (barcodeInput) barcodeInput.focus();
+        }
+
+        function confirmAddCustomItem() {
+            const nameInput = document.getElementById('custom-item-name');
+            const priceInput = document.getElementById('custom-item-price');
+            const price = parseFloat(priceInput ? priceInput.value : 0);
+
+            if (isNaN(price) || price <= 0) {
+                if (typeof showCustomModal === 'function') {
+                    showCustomModal('warning', 'ราคาไม่ถูกต้อง', 'กรุณาระบุราคาขายที่มากกว่า 0 บาท');
+                } else {
+                    alert('กรุณาระบุราคาขายที่มากกว่า 0 บาท');
+                }
+                if (priceInput) priceInput.focus();
+                return;
+            }
+
+            const itemName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'สินค้าอื่นๆ';
+            const itemId = `CUSTOM_${Date.now()}`;
+
+            // สร้างโครงสร้างข้อมูลสินค้าจำลอง
+            const customItem = {
+                id: itemId,
+                name: itemName,
+                price: price,
+                cost: 0,
+                qty: 1,
+                stock_qty: 9999,
+                unit: 'ชิ้น',
+                is_custom: true
+            };
+
+            if (typeof cart !== 'undefined' && Array.isArray(cart)) {
+                // หากมีรายการสินค้าอื่นๆ ที่ชื่อและราคาเดียวกันอยู่แล้ว ให้บวกจำนวนเพิ่ม
+                const existing = cart.find(i => i.is_custom && i.name === itemName && parseFloat(i.price) === price);
+                if (existing) {
+                    existing.qty = (parseInt(existing.qty) || 0) + 1;
+                } else {
+                    cart.push(customItem);
+                }
+
+                if (typeof saveCartToStorage === 'function') saveCartToStorage();
+                if (typeof renderCart === 'function') renderCart();
+                if (typeof updateCartSummary === 'function') updateCartSummary();
+            }
+
+            closeCustomItemModal();
+        }
+        // ฟังก์ชันสลับหน้าจอเฉพาะบนมือถือ
+        function switchMobileView(view) {
+            const pPane = document.getElementById('pane-products');
+            const cPane = document.getElementById('pane-cart');
+            const pBtn = document.getElementById('tab-btn-products');
+            const cBtn = document.getElementById('tab-btn-cart');
+            const cIcon = cBtn ? cBtn.querySelector('div[style*="mask"]') : null;
+
+            if (!pPane || !cPane) return;
+
+            if (view === 'products') {
+                pPane.classList.remove('mobile-hidden');
+                cPane.classList.add('mobile-hidden');
+
+                if (pBtn) pBtn.className = "flex-1 py-1.5 flex flex-col items-center justify-center text-blue-600 font-bold text-xs transition active:scale-95 cursor-pointer";
+                if (cBtn) cBtn.className = "flex-1 py-1.5 flex flex-col items-center justify-center text-slate-500 font-bold text-xs transition active:scale-95 cursor-pointer relative";
+                if (cIcon) cIcon.className = "w-5 h-5 bg-slate-500 mb-0.5";
+            } else {
+                pPane.classList.add('mobile-hidden');
+                cPane.classList.remove('mobile-hidden');
+
+                if (pBtn) pBtn.className = "flex-1 py-1.5 flex flex-col items-center justify-center text-slate-500 font-bold text-xs transition active:scale-95 cursor-pointer";
+                if (cBtn) cBtn.className = "flex-1 py-1.5 flex flex-col items-center justify-center text-blue-600 font-bold text-xs transition active:scale-95 cursor-pointer relative";
+                if (cIcon) cIcon.className = "w-5 h-5 bg-blue-600 mb-0.5";
+            }
+        }
+
+        function updateCartSummary() {
+            const badge = document.getElementById('mobile-tab-badge');
+            const label = document.getElementById('mobile-tab-label');
+            if (typeof cart !== 'undefined' && Array.isArray(cart)) {
+                const totalQty = cart.reduce((sum, item) => sum + (parseInt(item.qty) || 0), 0);
+                const totalPrice = cart.reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.qty) || 0)), 0);
+
+                if (badge) {
+                    if (totalQty > 0) {
+                        badge.textContent = totalQty;
+                        badge.classList.remove('hidden');
+                        badge.classList.add('flex');
+                    } else {
+                        badge.classList.add('hidden');
+                        badge.classList.remove('flex');
+                    }
+                }
+
+                if (label) {
+                    if (totalQty > 0) {
+                        label.textContent = `คิดเงิน (฿${totalPrice.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })})`;
+                    } else {
+                        label.textContent = 'ตะกร้าคิดเงิน';
+                    }
+                }
+            }
+        }
+
+        function getStoredShortcuts() {
+            try {
+                const saved = localStorage.getItem('pos_custom_shortcuts');
+                if (saved) return JSON.parse(saved);
+            } catch (e) {}
+            return [];
+        }
+
+        function saveShortcutsToStore(shortcutIds) {
+            try {
+                localStorage.setItem('pos_custom_shortcuts', JSON.stringify(shortcutIds));
+                renderDynamicShortcuts();
+            } catch (e) {}
+        }
+
+        function renderDynamicShortcuts() {
+            const container = document.getElementById('dynamic-shortcuts-bar');
+            if (!container) return;
+
+            const shortcutIds = getStoredShortcuts();
+            const products = (typeof allProducts !== 'undefined' && allProducts.length > 0) ? allProducts : 
+                            ((typeof localProductsCache !== 'undefined') ? localProductsCache : []);
+
+            if (shortcutIds.length === 0) {
+                container.innerHTML = '<span class="text-[10px] text-slate-400 italic">ยังไม่มีทางลัด กด + เพื่อเพิ่ม</span>';
+                return;
+            }
+
+            container.innerHTML = shortcutIds.map(id => {
+                const prod = products.find(p => String(p.id).trim() === String(id).trim());
+                if (!prod) return '';
+                const safeId = String(prod.id).replace(/'/g, "\\'");
+                
+                return `
+                    <button type="button" 
+                            onclick="quickAddHotkey('${safeId}')" 
+                            oncontextmenu="event.preventDefault(); removeShortcutPrompt('${safeId}', '${prod.name.replace(/'/g, "\\'")}')"
+                            class="px-3 py-1 bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-200/80 rounded-xl text-[11px] font-bold transition flex items-center whitespace-nowrap cursor-pointer shadow-2xs select-none"
+                            title="คลิกซ้ายเพื่อขายด่วน | คลิกขวาเพื่อลบออกจากทางลัด">
+                        <span>${prod.name}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        async function removeShortcutPrompt(productId, productName) {
+            const isConfirmed = await showCustomModal(
+                'confirm',
+                'ลบปุ่มทางลัด?',
+                `คุณต้องการลบ <span class="font-bold text-slate-800">"${productName}"</span> ออกจากแถบทางลัดใช่หรือไม่?`
+            );
+
+            if (isConfirmed) {
+                removeShortcut(productId);
+            }
+        }
+
+        function openShortcutConfigModal() {
+            const modal = document.getElementById('shortcut-config-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            document.getElementById('shortcut-search-input').value = '';
+            renderShortcutPickerList('');
+            setTimeout(() => document.getElementById('shortcut-search-input').focus(), 50);
+        }
+
+        function closeShortcutConfigModal() {
+            const modal = document.getElementById('shortcut-config-modal');
+            if (modal) modal.classList.add('hidden');
+            if (typeof refocusBarcode === 'function') refocusBarcode();
+        }
+
+        let shortcutPickerLimit = 30;
+        let currentShortcutFiltered = [];
+        let currentShortcutKeyword = '';
+
+        // 🌟 ระบบควบคุมดรอปดาวน์หมวดหมู่ 🌟
+        function toggleShortcutCatDropdown() {
+            const menu = document.getElementById('shortcut-cat-menu');
+            const arrow = document.getElementById('shortcut-cat-arrow');
+            const statusMenu = document.getElementById('shortcut-status-menu');
+            const statusArrow = document.getElementById('shortcut-status-arrow');
+            if (statusMenu) statusMenu.classList.add('hidden');
+            if (statusArrow) statusArrow.classList.remove('rotate-180');
+
+            if (menu) {
+                const isClosed = menu.classList.toggle('hidden');
+                if (arrow) arrow.classList.toggle('rotate-180', !isClosed);
+            }
+        }
+
+        function selectShortcutCategory(key, label) {
+            const hidden = document.getElementById('shortcut-filter-category');
+            const labelEl = document.getElementById('shortcut-cat-label');
+            const menu = document.getElementById('shortcut-cat-menu');
+            const arrow = document.getElementById('shortcut-cat-arrow');
+
+            if (hidden) hidden.value = key;
+            if (labelEl) labelEl.innerText = label;
+            if (menu) menu.classList.add('hidden');
+            if (arrow) arrow.classList.remove('rotate-180');
+
+            document.querySelectorAll('#shortcut-cat-menu .cat-option').forEach(el => {
+                const isSelected = el.getAttribute('data-val') === key;
+                el.className = isSelected 
+                    ? "cat-option px-3.5 py-2.5 bg-blue-50 text-blue-600 font-bold cursor-pointer transition flex items-center justify-between border-b border-slate-100/60 last:border-b-0"
+                    : "cat-option px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition flex items-center justify-between border-b border-slate-100/60 last:border-b-0";
+            });
+
+            renderShortcutPickerList(document.getElementById('shortcut-search-input')?.value || '', true);
+        }
+
+        // 🌟 ระบบควบคุมดรอปดาวน์สถานะ 🌟
+        function toggleShortcutStatusDropdown() {
+            const menu = document.getElementById('shortcut-status-menu');
+            const arrow = document.getElementById('shortcut-status-arrow');
+            const catMenu = document.getElementById('shortcut-cat-menu');
+            const catArrow = document.getElementById('shortcut-cat-arrow');
+            if (catMenu) catMenu.classList.add('hidden');
+            if (catArrow) catArrow.classList.remove('rotate-180');
+
+            if (menu) {
+                const isClosed = menu.classList.toggle('hidden');
+                if (arrow) arrow.classList.toggle('rotate-180', !isClosed);
+            }
+        }
+
+        function selectShortcutStatus(val, label) {
+            const hidden = document.getElementById('shortcut-filter-status');
+            const labelEl = document.getElementById('shortcut-status-label');
+            const menu = document.getElementById('shortcut-status-menu');
+            const arrow = document.getElementById('shortcut-status-arrow');
+
+            if (hidden) hidden.value = val;
+            if (labelEl) labelEl.innerText = label;
+            if (menu) menu.classList.add('hidden');
+            if (arrow) arrow.classList.remove('rotate-180');
+
+            document.querySelectorAll('#shortcut-status-menu .status-option').forEach(el => {
+                const text = el.innerText.trim();
+                const isSelected = (text === label);
+                el.className = isSelected
+                    ? "status-option px-3.5 py-2.5 bg-blue-50 text-blue-600 font-bold cursor-pointer transition leading-normal border-b border-slate-100/60 last:border-b-0"
+                    : "status-option px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition leading-normal border-b border-slate-100/60 last:border-b-0";
+            });
+
+            renderShortcutPickerList(document.getElementById('shortcut-search-input')?.value || '', true);
+        }
+
+        // 🌟 วาดรายการหมวดหมู่ลงในดรอปดาวน์ 🌟
+        function populateShortcutCategoryDropdown() {
+            const menu = document.getElementById('shortcut-cat-menu');
+            if (!menu) return;
+
+            const categories = (typeof localCategoriesCache !== 'undefined' && localCategoriesCache.length > 0) 
+                ? localCategoriesCache 
+                : ((typeof getStoredCategories === 'function') ? getStoredCategories() : []);
+
+            const currentKey = document.getElementById('shortcut-filter-category')?.value || 'all';
+
+            let itemsHtml = `
+                <div data-val="all" onclick="selectShortcutCategory('all', 'ทุกหมวดหมู่')" 
+                     class="cat-option px-3.5 py-2.5 ${currentKey === 'all' ? 'bg-blue-50 text-blue-600 font-bold' : 'hover:bg-slate-50 text-slate-700 font-medium'} cursor-pointer transition leading-normal flex items-center justify-between border-b border-slate-100/60">
+                    <span>ทุกหมวดหมู่</span>
+                </div>
+                <div data-val="no_barcode" onclick="selectShortcutCategory('no_barcode', 'รายการที่ไม่มีบาร์โค้ด')" 
+                     class="cat-option px-3.5 py-2.5 ${currentKey === 'no_barcode' ? 'bg-blue-50 text-blue-600 font-bold' : 'hover:bg-slate-50 text-slate-700 font-medium'} cursor-pointer transition leading-normal flex items-center justify-between border-b border-slate-100/60">
+                    <span>รายการที่ไม่มีบาร์โค้ด</span>
+                </div>
+            `;
+
+            if (Array.isArray(categories)) {
+                categories.forEach(c => {
+                    if (c.key_name !== 'no_barcode' && c.label_name !== 'รายการที่ไม่มีบาร์โค้ด') {
+                        const isSelected = (currentKey === c.key_name);
+                        itemsHtml += `
+                            <div data-val="${c.key_name}" onclick="selectShortcutCategory('${c.key_name}', '${c.label_name.replace(/'/g, "\\'")}')" 
+                                 class="cat-option px-3.5 py-2.5 ${isSelected ? 'bg-blue-50 text-blue-600 font-bold' : 'hover:bg-slate-50 text-slate-700 font-medium'} cursor-pointer transition leading-normal flex items-center justify-between border-b border-slate-100/60 last:border-b-0">
+                                <span>${c.label_name}</span>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            menu.innerHTML = itemsHtml;
+        }
+
+        function openShortcutConfigModal() {
+            const modal = document.getElementById('shortcut-config-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+
+            document.getElementById('shortcut-search-input').value = '';
+            
+            // รีเซ็ตตัวกรอง
+            const catHidden = document.getElementById('shortcut-filter-category');
+            if (catHidden) catHidden.value = 'all';
+            const catLabel = document.getElementById('shortcut-cat-label');
+            if (catLabel) catLabel.innerText = 'ทุกหมวดหมู่';
+
+            const statusHidden = document.getElementById('shortcut-filter-status');
+            if (statusHidden) statusHidden.value = 'all';
+            const statusLabel = document.getElementById('shortcut-status-label');
+            if (statusLabel) statusLabel.innerText = 'ทุกรายการ';
+
+            populateShortcutCategoryDropdown();
+            renderShortcutPickerList('');
+            setTimeout(() => document.getElementById('shortcut-search-input').focus(), 50);
+        }
+
+        // ดักคลิกที่ว่างเพื่อหุบเมนูดรอปดาวน์
+        document.addEventListener('click', (e) => {
+            const catWrapper = document.getElementById('shortcut-cat-wrapper');
+            const statusWrapper = document.getElementById('shortcut-status-wrapper');
+            if (catWrapper && !catWrapper.contains(e.target)) {
+                document.getElementById('shortcut-cat-menu')?.classList.add('hidden');
+                document.getElementById('shortcut-cat-arrow')?.classList.remove('rotate-180');
+            }
+            if (statusWrapper && !statusWrapper.contains(e.target)) {
+                document.getElementById('shortcut-status-menu')?.classList.add('hidden');
+                document.getElementById('shortcut-status-arrow')?.classList.remove('rotate-180');
+            }
+        });
+
+        function renderShortcutPickerList(keyword, resetLimit = true) {
+            const container = document.getElementById('shortcut-picker-list');
+            if (!container) return;
+
+            if (resetLimit) {
+                shortcutPickerLimit = 30;
+                container.scrollTop = 0;
+            }
+            currentShortcutKeyword = keyword || '';
+
+            const products = (typeof allProducts !== 'undefined' && allProducts.length > 0) ? allProducts : 
+                            ((typeof localProductsCache !== 'undefined') ? localProductsCache : []);
+                            
+            const currentShortcuts = getStoredShortcuts();
+
+            // ⚡ 1. ระบบแปลงสระภาษาไทย: รองรับทั้งสระเอ 2 ตัว (เเ -> แ) และพิมพ์สระเอตัวเดียวลงท้าย
+            const normalizeThai = (str) => String(str || '').toLowerCase().replace(/เเ/g, 'แ');
+            const cleanKey = normalizeThai(keyword).trim();
+            const altKey = cleanKey.endsWith('เ') ? cleanKey.slice(0, -1) + 'แ' : null;
+
+            const isIndexSearch = cleanKey.startsWith('#');
+            const searchKey = isIndexSearch ? cleanKey.substring(1).trim() : cleanKey;
+
+            const savedIndexMap = JSON.parse(localStorage.getItem('pos_catalog_indexes') || '{}');
+
+            const productStockMap = new Map();
+            products.forEach(p => {
+                if (p && p.id !== undefined) productStockMap.set(String(p.id).trim(), parseInt(p.stock_qty) || 0);
+            });
+
+            const mappedProducts = products.map((p, idx) => {
+                const idStr = String(p.id || '').trim();
+                const actualIndex = savedIndexMap[idStr] || (idx + 1);
+
+                let realStock = parseInt(p.stock_qty) || 0;
+                if (p.parent_id) {
+                    const parentStock = productStockMap.get(String(p.parent_id).trim()) || 0;
+                    const multiplier = parseInt(p.multiplier) > 0 ? parseInt(p.multiplier) : 1;
+                    realStock = Math.floor(parentStock / multiplier);
+                }
+
+                return {
+                    ...p,
+                    _catalogIndex: actualIndex,
+                    calculatedStock: realStock
+                };
+            });
+
+            mappedProducts.sort((a, b) => (b._catalogIndex || 0) - (a._catalogIndex || 0));
+
+            const selectedCategory = document.getElementById('shortcut-filter-category')?.value || 'all';
+            const selectedStatus = document.getElementById('shortcut-filter-status')?.value || 'all';
+
+            const filtered = mappedProducts.filter(p => {
+                // กรองตามหมวดหมู่
+                if (selectedCategory === 'no_barcode') {
+                    if (!(p.is_no_barcode == 1 || p.is_no_barcode === '1' || p.is_no_barcode === true)) return false;
+                } else if (selectedCategory !== 'all') {
+                    if (p.category !== selectedCategory) return false;
+                }
+
+                // กรองตามสถานะทางลัด
+                const isAdded = currentShortcuts.includes(String(p.id).trim());
+                if (selectedStatus === 'added' && !isAdded) return false;
+                if (selectedStatus === 'not_added' && isAdded) return false;
+
+                // ⚡ 2. ค้นหาชื่อสินค้าโดยเทียบทั้งสระเอและสระแอ
+                if (isIndexSearch) {
+                    return String(p._catalogIndex).startsWith(searchKey);
+                } else if (cleanKey) {
+                    const normName = normalizeThai(p.name);
+                    const matchName = normName.includes(cleanKey) || (altKey && normName.includes(altKey));
+                    const matchId = String(p.id || '').toLowerCase().includes(cleanKey);
+                    const matchBarcode = String(p.barcode || '').toLowerCase().includes(cleanKey);
+                    const matchIndex = String(p._catalogIndex) === cleanKey;
+                    return matchName || matchId || matchBarcode || matchIndex;
+                }
+
+                return true;
+            });
+
+            currentShortcutFiltered = filtered;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<p class="text-xs text-center py-8 text-slate-400">ไม่พบรายการสินค้า</p>';
+                return;
+            }
+
+            const paginated = filtered.slice(0, shortcutPickerLimit);
+
+            container.innerHTML = paginated.map(p => {
+                const isAdded = currentShortcuts.includes(String(p.id).trim());
+                const safeId = String(p.id).replace(/'/g, "\\'");
+                const unit = p.unit || 'ชิ้น';
+                const displayCode = p.id || '-';
+
+                const rawImg = String(p.img || '').trim();
+                const isInvalidImg = !rawImg || rawImg.includes('placeholder.jpg');
+                let imgSrc = isInvalidImg ? (typeof placeholderSVG !== 'undefined' ? placeholderSVG : '') : rawImg;
+                if (!isInvalidImg && !imgSrc.startsWith('images/') && !imgSrc.startsWith('/images/') && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
+                    imgSrc = `images/${imgSrc}`;
+                }
+
+                return `
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 hover:bg-slate-100/90 border border-slate-200/70 transition shadow-2xs">
+                        <div class="flex items-center gap-3 min-w-0 pr-2">
+                            <div class="w-10 h-10 rounded-xl bg-white border border-slate-200/80 p-1 flex-shrink-0 flex items-center justify-center shadow-2xs">
+                                <img src="${imgSrc}" loading="lazy" class="w-full h-full object-contain" onerror="this.onerror=null; if(typeof placeholderSVG!=='undefined') this.src=placeholderSVG;">
+                            </div>
+                            <div class="min-w-0 space-y-0.5">
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-200/70 text-slate-700 rounded-md border border-slate-300/50 flex-shrink-0">#${p._catalogIndex}</span>
+                                    <!-- ⚡ เพิ่ม py-0.5 leading-normal ป้องกันสระบน-ล่างโดนตัดขาด ⚡ -->
+                                    <p class="text-xs font-bold text-slate-800 truncate py-0.5 leading-normal" title="${p.name}">${p.name}</p>
+                                </div>
+                                <p class="text-[11px] text-slate-500 font-medium">บาร์โค้ด: <span class="font-semibold text-slate-700">${displayCode}</span></p>
+                                <p class="text-[11px] text-slate-400 font-medium">ราคา ฿${parseFloat(p.price || 0).toFixed(2)} • เหลือ ${p.calculatedStock} ${unit}</p>
+                            </div>
+                        </div>
+                        ${isAdded ? `
+                            <button type="button" onclick="toggleShortcutItem('${safeId}')" 
+                                    class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200/80 rounded-xl text-xs font-bold transition flex-shrink-0 cursor-pointer shadow-2xs">
+                                ลบออก
+                            </button>
+                        ` : `
+                            <button type="button" onclick="toggleShortcutItem('${safeId}')" 
+                                    class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition flex-shrink-0 cursor-pointer shadow-sm shadow-emerald-600/25">
+                                + เพิ่ม
+                            </button>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleShortcutItem(productId) {
+            let currentShortcuts = getStoredShortcuts();
+            const cleanId = String(productId).trim();
+
+            if (currentShortcuts.includes(cleanId)) {
+                currentShortcuts = currentShortcuts.filter(id => id !== cleanId);
+            } else {
+                currentShortcuts.push(cleanId);
+            }
+
+            saveShortcutsToStore(currentShortcuts);
+            // ไม่รีเซ็ตตำแหน่ง scroll ตอนกดปุ่ม เพิ่ม/ลบ
+            renderShortcutPickerList(document.getElementById('shortcut-search-input').value, false);
+        }
+
+        function removeShortcut(productId) {
+            let currentShortcuts = getStoredShortcuts();
+            currentShortcuts = currentShortcuts.filter(id => id !== String(productId).trim());
+            saveShortcutsToStore(currentShortcuts);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                renderDynamicShortcuts();
+                updateCartSummary();
+            }, 300);
+
+            // 🌟 ตรวจจับการเลื่อนจอในกล่องทางลัด เพื่อโหลดต่อทีละ 30 ชิ้น 🌟
+            const shortcutList = document.getElementById('shortcut-picker-list');
+            if (shortcutList) {
+                shortcutList.addEventListener('scroll', () => {
+                    if (shortcutList.scrollTop + shortcutList.clientHeight >= shortcutList.scrollHeight - 150) {
+                        if (shortcutPickerLimit < currentShortcutFiltered.length) {
+                            shortcutPickerLimit += 30;
+                            renderShortcutPickerList(currentShortcutKeyword, false);
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

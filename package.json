@@ -1,0 +1,60 @@
+{
+  "name": "pos-system",
+  "version": "1.0.0",
+  "description": "POS System",
+  "main": "main.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "app": "electron .",
+    "dist": "electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "electron-updater": "^6.8.9",
+    "express": "^5.2.1",
+    "multer": "^2.3.0",
+    "mysql2": "^3.24.2"
+  },
+  "devDependencies": {
+    "electron": "^34.5.8",
+    "electron-builder": "^26.15.3",
+    "electron-packager": "^17.1.2",
+    "nodemon": "^3.1.14"
+  },
+  "build": {
+    "appId": "com.possystem.app",
+    "productName": "POS System",
+    "win": {
+      "target": "nsis",
+      "icon": "public/favicon.ico"
+    },
+    "extraResources": [
+      {
+        "from": "db-engine",
+        "to": "db-engine",
+        "filter": ["**/*"]
+      },
+      "key.pem",
+      "cert.pem"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "POS System"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}
