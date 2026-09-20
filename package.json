@@ -32,6 +32,11 @@
   "build": {
     "appId": "com.possystem.app",
     "productName": "POS System",
+    "publish": {
+      "provider": "github",
+      "owner": "mongkolkamsu",
+      "repo": "pos-system"
+    },
     "win": {
       "target": "nsis",
       "icon": "public/favicon.ico"
@@ -46,7 +51,7 @@
       "cert.pem"
     ],
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
