@@ -643,9 +643,18 @@ app.get('/api/tts', async (req, res) => {
 // ========================================================
 // 🚀 9. เริ่มต้นรัน HTTPS Server
 // ========================================================
+// กำหนด path ให้รองรับทั้งตอน dev และตอน build เป็นแอปติดตั้งจริง
+const keyPath = (process.resourcesPath && fs.existsSync(path.join(process.resourcesPath, 'key.pem')))
+    ? path.join(process.resourcesPath, 'key.pem')
+    : path.join(__dirname, 'key.pem');
+
+const certPath = (process.resourcesPath && fs.existsSync(path.join(process.resourcesPath, 'cert.pem')))
+    ? path.join(process.resourcesPath, 'cert.pem')
+    : path.join(__dirname, 'cert.pem');
+
 const sslOptions = {
-    key: fs.readFileSync(path.join(__dirname, 'key.pem')),
-    cert: fs.readFileSync(path.join(__dirname, 'cert.pem'))
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath)
 };
 
 https.createServer(sslOptions, app).listen(PORT, '0.0.0.0', async () => {
