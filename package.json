@@ -53,7 +53,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "POS System"
