@@ -140,7 +140,7 @@ function loadPaymentModalHTML() {
                 </div>
                 <div>
                     <p id="digital-method-title" class="text-sm font-bold text-slate-900"></p>
-                    <p class="text-xs text-slate-500 mt-0.5">ยอดชำระ <span id="digital-exact-amount" class="text-sm font-bold">฿0.00</p>
+                    <p class="text-xs text-slate-500 mt-0.5">ยอดชำระ <span id="digital-exact-amount" class="text-sm font-bold">฿0.00</span></p>
                     <!-- ข้อความแสดงเวลานับถอยหลัง -->
                     <p id="qr-timer-text" class="text-[11px] font-semibold text-amber-600 mt-1"></p>
                 </div>
@@ -189,6 +189,10 @@ function openPaymentModal() {
         return;
     }
 
+    // 🟢 ปลดล็อกปุ่มยืนยันให้กดได้เสมอเมื่อเปิดหน้าต่างขึ้นมา
+    const btnConfirm = document.getElementById('btn-confirm-payment');
+    if (btnConfirm) btnConfirm.disabled = false;
+
     currentTotalBill = Math.round(cart.reduce((sum, item) => sum + (item.price * item.qty), 0) * 100) / 100;
     const modal = document.getElementById('payment-modal');
     const totalEl = document.getElementById('pay-modal-total');
@@ -223,7 +227,7 @@ function setPaymentMethod(method) {
 
     stopPaymentListener();
     stopQRCountdown(); // ⭐️ รีเซ็ตตัวนับเวลาก่อนเสมอ
-
+    
     const tabCash = document.getElementById('tab-cash');
     const tabTransfer = document.getElementById('tab-transfer');
     const tabGov = document.getElementById('tab-gov');
@@ -238,8 +242,10 @@ function setPaymentMethod(method) {
     const digitalTitle = document.getElementById('digital-method-title');
     const digitalBadge = document.getElementById('digital-icon-badge');
     const btnConfirm = document.getElementById('btn-confirm-payment');
+    if (btnConfirm) btnConfirm.disabled = false;
     const headerIcon = document.getElementById('modal-header-icon');
     const headerIconBox = document.getElementById('modal-header-icon-box');
+    
 
     const inactiveClass = 'py-2.5 px-1 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95 text-slate-600 hover:text-slate-900 whitespace-nowrap';
     [tabCash, tabTransfer, tabGov, tabDebt].forEach(tab => {
@@ -314,7 +320,8 @@ function setPaymentMethod(method) {
             const qrImg = document.getElementById('pay-qr-image');
             if (qrImg && PROMPTPAY_ID) {
                 const payload = generatePromptPayPayload(PROMPTPAY_ID, currentTotalBill);
-                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(payload)}`;
+                // 🟢 เพิ่ม &t=${Date.now()} ป้องกันการดึงภาพแคชเก่า
+                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(payload)}&t=${Date.now()}`; 
                 qrImg.classList.remove('hidden');
                 if (digitalBadge) digitalBadge.classList.add('hidden');
             }
@@ -389,6 +396,13 @@ function stopQRCountdown() {
         clearInterval(qrCountdownTimer);
         qrCountdownTimer = null;
     }
+    // 🟢 ล้างข้อความเวลานับถอยหลังทิ้ง ไม่ให้ค้างไปโผล่ในแท็บโครงการรัฐ
+    const timerText = document.getElementById('qr-timer-text');
+    if (timerText) timerText.innerText = '';
+
+    // 🟢 ซ่อนหน้ากากแจ้งหมดอายุ (ถ้าเคยเปิดค้างไว้)
+    const expiredOverlay = document.getElementById('qr-expired-overlay');
+    if (expiredOverlay) expiredOverlay.classList.add('hidden');
 }
 
 // ฟังก์ชันกดสร้าง QR Code ใหม่
@@ -397,6 +411,7 @@ function refreshQRCode() {
         const qrImg = document.getElementById('pay-qr-image');
         if (qrImg && PROMPTPAY_ID) {
             const payload = generatePromptPayPayload(PROMPTPAY_ID, currentTotalBill);
+            // 🟢 เพิ่ม &t=${Date.now()} ป้องกันการดึงภาพแคชเก่า
             qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(payload)}&t=${Date.now()}`;
         }
         startPaymentListener(currentTotalBill);
@@ -441,6 +456,10 @@ function calculateChange() {
 }
 
 async function confirmPayment() {
+    const btnConfirm = document.getElementById('btn-confirm-payment');
+    if (btnConfirm && btnConfirm.disabled) return;
+    if (btnConfirm) btnConfirm.disabled = true;
+
     const input = document.getElementById('pay-received-input');
     const received = parseFloat(input?.value) || 0;
     const customerNameInput = document.getElementById('pay-customer-name');
@@ -449,21 +468,24 @@ async function confirmPayment() {
     const debtNote = debtNoteInput ? debtNoteInput.value.trim() : '';
 
     if (currentPaymentMethod === 'cash' && (Math.round((received - currentTotalBill) * 100) / 100) < 0) {
+        if (btnConfirm) btnConfirm.disabled = false;
         await showCustomModal('warning', 'เงินไม่ครบ', 'จำนวนเงินที่รับมาน้อยกว่ายอดรวมสุทธิ');
         return;
     }
 
     if (currentPaymentMethod === 'debt' && !customerName) {
+        if (btnConfirm) btnConfirm.disabled = false;
         await showCustomModal('warning', 'กรุณาระบุชื่อลูกค้า', 'โปรดระบุชื่อลูกค้าหรือเบอร์โทรสำหรับบันทึกรายการติดเงิน');
         customerNameInput?.focus();
         return;
     }
 
+    // 🟢 แก้ชื่อให้เป็น 'สแกน/โอน' ให้ตรงกับระบบฐานข้อมูล
     const paymentLabels = {
         cash: 'เงินสด',
-        transfer: 'สแกน/โอนเงิน',
+        transfer: 'สแกน/โอน',
         gov: 'โครงการรัฐ',
-        debt: 'ติดเงิน / ค้างชำระ'
+        debt: 'ติดเงิน'
     };
 
     const saleData = {
@@ -486,6 +508,7 @@ async function confirmPayment() {
         const res = await response.json();
 
         if (!res.success) {
+            if (btnConfirm) btnConfirm.disabled = false; // 🟢 ปลดล็อกปุ่มหากบันทึกไม่สำเร็จ
             await showCustomModal('warning', 'เกิดข้อผิดพลาด', res.message || 'ไม่สามารถบันทึกข้อมูลได้');
             return;
         }
@@ -498,15 +521,15 @@ async function confirmPayment() {
         }
     } catch (err) {
         console.error('Save Sale Error:', err);
+        if (btnConfirm) btnConfirm.disabled = false; // 🟢 ปลดล็อกปุ่มหากเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว
+        await showCustomModal('warning', 'เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+        return;
     }
 
     closePaymentModal();
 
     if (currentPaymentMethod !== 'debt') {
-        playKaChingSound(); // เสียงกระดิ่ง กริ๊งงง
-        
-        // ถ้าอยากให้มีเสียงพูดผู้หญิงแจ้งยอดด้วย (เช่น "เงินเข้าแล้ว 100 บาท") ให้เปิดบรรทัดนี้:
-        //playPaymentSuccessVoice(currentTotalBill);
+        playKaChingSound();
     }
 
     if (currentPaymentMethod === 'debt') {
@@ -525,7 +548,7 @@ async function confirmPayment() {
     }
     
     cart = [];
-    if (typeof saveCartToStorage === 'function') saveCartToStorage(); // 🌟 ล้างข้อมูลออกจาก LocalStorage ทันที
+    if (typeof saveCartToStorage === 'function') saveCartToStorage();
     if (typeof renderCart === 'function') renderCart();
     if (typeof refocusBarcode === 'function') refocusBarcode();
 }

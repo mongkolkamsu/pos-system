@@ -1,349 +1,558 @@
-// ----------------- ระบบปฏิทินเลือกวันที่สไตล์ iOS (js/calendar.js) -----------------
+/**
+ * 📅 Modern Calendar Picker Component (Thai Buddhist Era)
+ * อัปเกรดจาก lanto-calendar.js รองรับทั้ง Drag Range, Multi-Month และเชื่อมต่อระบบเดิม 100%
+ */
+class LantoCalendar {
+    constructor() {
+        this.currentDate = new Date();
+        this.mode = 'day'; // 'day' | 'month'
+        this.startDate = null;
+        this.endDate = null;
+        this.hoverDate = null;
+        this.isDragging = false;
+        this.targetInput = null;
 
-let calViewDate = new Date(); // เดือน-ปีที่กำลังเปิดดู
-let calStartDate = null;
-let calEndDate = null;
-let calSelectionMode = 'single'; // 'single' (วันเดียว) | 'range' (ช่วงวันที่) | 'month' (ทั้งเดือน)
-let activeTargetInput = null;
+        this.startMonthIdx = null;
+        this.endMonthIdx = null;
 
-const thaiMonthNames = [
-    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
-];
-
-const thaiDayNames = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
-
-document.addEventListener("DOMContentLoaded", () => {
-    initCalendarTriggers();
-});
-
-// ตรวจจับการกด Input หรือปุ่มเปิดปฏิทิน
-function initCalendarTriggers() {
-    document.querySelectorAll('#custom-date-picker, .calendar-trigger').forEach(input => {
-        input.addEventListener('click', (e) => {
-            e.preventDefault();
-            openCalendarModal(input);
-        });
-    });
-}
-
-function openCalendarModal(targetInput) {
-    activeTargetInput = targetInput;
-    calViewDate = new Date();
-    calStartDate = null;
-    calEndDate = null;
-    
-    // ดึงค่าเดิมมาแสดงผลถ้ามี
-    if (targetInput && targetInput.value) {
-        parseExistingInputValue(targetInput.value);
+        this.viewMonth = this.currentDate.getMonth();
+        this.viewYear = this.currentDate.getFullYear();
+        this.thaiMonths = [
+            "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+            "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+        ];
+        this.thaiDays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+        this.init();
     }
 
-    renderCalendarModalHTML();
-}
-
-function parseExistingInputValue(val) {
-    if (val.includes('/')) {
-        const parts = val.split('-').map(s => s.trim());
-        if (parts.length === 1) {
-            const [d, m, y] = parts[0].split('/').map(Number);
-            calStartDate = new Date(y - 543, m - 1, d);
-            calViewDate = new Date(calStartDate);
-            calSelectionMode = 'single';
-        } else if (parts.length === 2) {
-            const [d1, m1, y1] = parts[0].split('/').map(Number);
-            const [d2, m2, y2] = parts[1].split('/').map(Number);
-            calStartDate = new Date(y1 - 543, m1 - 1, d1);
-            calEndDate = new Date(y2 - 543, m2 - 1, d2);
-            calViewDate = new Date(calStartDate);
-            calSelectionMode = 'range';
-        }
-    }
-}
-
-function renderCalendarModalHTML() {
-    let container = document.getElementById('calendar-modal-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'calendar-modal-container';
-        document.body.appendChild(container);
+    init() {
+        if (document.getElementById("lanto-calendar-modal")) return;
+        this.createModal();
+        this.bindEvents();
     }
 
-    const yearThai = calViewDate.getFullYear() + 543;
-    const monthNameThai = thaiMonthNames[calViewDate.getMonth()];
+    createModal() {
+        const modalHTML = `
+        <div id="lanto-calendar-modal" style="z-index: 999999 !important;" class="fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs transition-opacity duration-200 select-none">
+            <div class="relative w-full sm:max-w-md bg-white/95 backdrop-blur-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.2)] p-6 space-y-3.5 animate-in slide-in-from-bottom-5 duration-200" onclick="event.stopPropagation()">
+                
+                <!-- 🍏 1. iOS Segmented Control -->
+                <div class="flex p-1 bg-slate-100 rounded-2xl">
+                    <button type="button" id="cal-mode-day-btn" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all bg-white text-slate-800 shadow-xs cursor-pointer">
+                        เลือกช่วงวัน
+                    </button>
+                    <button type="button" id="cal-mode-month-btn" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-500 hover:text-slate-800 cursor-pointer">
+                        เลือกหลายเดือน
+                    </button>
+                </div>
 
-    container.innerHTML = `
-    <div id="ios-calendar-modal" 
-         onclick="if(event.target === this) closeCalendarModal()"
-         class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
-        
-        <div class="bg-white w-full max-w-sm sm:max-w-md p-5 sm:p-6 rounded-[28px] shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95"
-             onclick="event.stopPropagation()">
-            
-            <!-- ส่วนหัว Modal -->
-            <div class="flex items-center justify-between pb-1">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/80 shadow-2xs">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
+                <!-- 2. Header: เดือน / ปี พ.ศ. และปุ่มเลื่อน -->
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100 relative">
+                    <div class="flex items-center gap-1.5 relative">
+                        <div id="cal-month-dropdown-wrapper" class="relative">
+                            <button type="button" id="cal-month-btn" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-2xl text-xs font-bold text-slate-800 transition-all active:scale-95 outline-none cursor-pointer">
+                                <span id="cal-month-label">เดือน</span>
+                                <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                            </button>
+                            <div id="cal-month-menu" class="hidden absolute left-0 top-full mt-1.5 w-36 max-h-52 overflow-y-auto bg-white border border-slate-200/80 rounded-2xl shadow-xl p-1.5 space-y-0.5 z-[1000000] text-xs"></div>
+                        </div>
+
+                        <div class="relative">
+                            <button type="button" id="cal-year-btn" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-2xl text-xs font-bold text-slate-800 transition-all active:scale-95 outline-none cursor-pointer">
+                                <span id="cal-year-label">ปี พ.ศ.</span>
+                                <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                            </button>
+                            <div id="cal-year-menu" class="hidden absolute left-0 top-full mt-1.5 w-28 max-h-52 overflow-y-auto bg-white border border-slate-200/80 rounded-2xl shadow-xl p-1.5 space-y-0.5 z-[1000000] text-xs"></div>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-base font-bold text-slate-900 leading-tight">เลือกวันที่ / ช่วงเวลา</h3>
-                        <p class="text-[11px] text-slate-400 font-medium">ระบุวันที่ต้องการค้นหาข้อมูล</p>
+
+                    <div class="flex items-center gap-0.5">
+                        <button type="button" id="cal-prev-btn" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 text-slate-600 active:scale-95 transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+                        </button>
+                        <button type="button" id="cal-next-btn" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 text-slate-600 active:scale-95 transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                        </button>
                     </div>
                 </div>
-                <button type="button" onclick="closeCalendarModal()" 
-                        class="text-slate-400 hover:text-slate-800 hover:bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full transition cursor-pointer">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
 
-            <!-- แท็บโหมดการเลือก (iOS Segmented Control) -->
-            <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200/60 shadow-inner">
-                <button type="button" onclick="setCalendarMode('single')" 
-                        class="py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${calSelectionMode === 'single' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'}">
-                    วันเดียว
-                </button>
-                <button type="button" onclick="setCalendarMode('range')" 
-                        class="py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${calSelectionMode === 'range' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'}">
-                    ช่วงวันที่
-                </button>
-                <button type="button" onclick="setCalendarMode('month')" 
-                        class="py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${calSelectionMode === 'month' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'}">
-                    ทั้งเดือน
-                </button>
-            </div>
+                <!-- 📅 3. มุมมองรายวัน -->
+                <div id="cal-days-view-container" class="space-y-2">
+                    <div class="grid grid-cols-7 text-center gap-0">
+                        ${this.thaiDays.map((d, i) => `
+                            <span class="text-[11px] font-bold ${i === 0 ? 'text-rose-500' : 'text-slate-400'} py-1">${d}</span>
+                        `).join("")}
+                    </div>
+                    <div id="cal-days-grid" class="grid grid-cols-7 gap-y-1 text-center"></div>
+                    <p class="text-[11px] text-center text-slate-400 pt-1">
+                        ลากเพื่อเลือกช่วงวัน หรือคลิกวันเริ่มต้นและวันสิ้นสุด
+                    </p>
+                </div>
 
-            <!-- แถบนำทาง เดือน / ปี -->
-            <div class="flex items-center justify-between px-2 pt-1">
-                <button type="button" onclick="navigateCalendarMonth(-1)" 
-                        class="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 transition active:scale-90 cursor-pointer">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
-                </button>
-                <span class="text-sm font-bold text-slate-800">${monthNameThai} ${yearThai}</span>
-                <button type="button" onclick="navigateCalendarMonth(1)" 
-                        class="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 transition active:scale-90 cursor-pointer">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                </button>
-            </div>
+                <!-- 🗓️ 4. มุมมองรายเดือน -->
+                <div id="cal-months-view-container" class="hidden space-y-2">
+                    <div id="cal-months-grid" class="grid grid-cols-3 gap-2 text-center py-2"></div>
+                    <p class="text-[11px] text-center text-slate-400 pt-1">
+                        แตะเดือนเริ่มต้น และแตะเดือนสิ้นสุดเพื่อเลือกหลายเดือน
+                    </p>
+                </div>
 
-            <!-- ส่วนตารางปฏิทิน -->
-            ${calSelectionMode === 'month' ? renderMonthPickerGridHTML() : renderDaysCalendarGridHTML()}
-
-            <!-- ปุ่มลัดเลือกด่วน -->
-            <div class="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-100">
-                <button type="button" onclick="selectCalendarShortcut('today')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-[11px] transition cursor-pointer">วันนี้</button>
-                <button type="button" onclick="selectCalendarShortcut('yesterday')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-[11px] transition cursor-pointer">เมื่อวาน</button>
-                <button type="button" onclick="selectCalendarShortcut('thisMonth')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-[11px] transition cursor-pointer">เดือนนี้</button>
-                <button type="button" onclick="clearCalendarValue()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl text-[11px] transition cursor-pointer">ล้างค่า</button>
-            </div>
-
-            <!-- ปุ่มกดยืนยัน -->
-            <button type="button" onclick="applyCalendarSelection()" 
-                    class="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-2xl text-sm font-bold shadow-md shadow-blue-600/20 transition cursor-pointer">
-                ตกลง / เลือกวันที่
-            </button>
-        </div>
-    </div>
-    `;
-}
-
-// สร้างตารางตารางวัน (อาทิตย์ - เสาร์)
-function renderDaysCalendarGridHTML() {
-    const year = calViewDate.getFullYear();
-    const month = calViewDate.getMonth();
-    
-    const firstDayIndex = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date();
-
-    let gridHtml = `
-        <div class="grid grid-cols-7 gap-1 text-center">
-            ${thaiDayNames.map(d => `<span class="text-[11px] font-bold text-slate-400 py-1">${d}</span>`).join('')}
-    `;
-
-    // ช่องว่างก่อนวันแรกของเดือน
-    for (let i = 0; i < firstDayIndex; i++) {
-        gridHtml += `<div class="p-1"></div>`;
-    }
-
-    // สร้างปุ่มแต่ละวัน
-    for (let day = 1; day <= daysInMonth; day++) {
-        const thisDate = new Date(year, month, day);
-        const isToday = thisDate.toDateString() === today.toDateString();
-
-        let isSelected = false;
-        let isInRange = false;
-
-        if (calStartDate && thisDate.toDateString() === calStartDate.toDateString()) {
-            isSelected = true;
-        }
-        if (calEndDate && thisDate.toDateString() === calEndDate.toDateString()) {
-            isSelected = true;
-        }
-        if (calStartDate && calEndDate && thisDate > calStartDate && thisDate < calEndDate) {
-            isInRange = true;
-        }
-
-        let btnClass = "w-8 h-8 sm:w-9 sm:h-9 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition cursor-pointer select-none ";
-
-        if (isSelected) {
-            btnClass += "bg-blue-600 text-white shadow-2xs scale-105";
-        } else if (isInRange) {
-            btnClass += "bg-blue-50 text-blue-700 rounded-none w-full";
-        } else if (isToday) {
-            btnClass += "bg-slate-100 text-blue-600 border border-blue-200 hover:bg-slate-200";
-        } else {
-            btnClass += "text-slate-700 hover:bg-slate-100";
-        }
-
-        gridHtml += `
-            <div class="py-0.5">
-                <button type="button" onclick="onCalendarDayClick(${year}, ${month}, ${day})" class="${btnClass}">
-                    ${day}
-                </button>
-            </div>
-        `;
-    }
-
-    gridHtml += `</div>`;
-    return gridHtml;
-}
-
-// โหมดเลือกเดือน
-function renderMonthPickerGridHTML() {
-    const year = calViewDate.getFullYear();
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-
-    return `
-        <div class="grid grid-cols-3 gap-2 py-2">
-            ${thaiMonthNames.map((name, mIdx) => {
-                const isSelected = (calStartDate && calStartDate.getMonth() === mIdx && calStartDate.getFullYear() === year);
-                const isCurrent = (mIdx === currentMonth && year === currentYear);
-
-                let btnClass = "py-2.5 px-2 rounded-xl text-xs font-bold transition cursor-pointer select-none border ";
-                if (isSelected) {
-                    btnClass += "bg-blue-600 text-white border-blue-600 shadow-2xs";
-                } else if (isCurrent) {
-                    btnClass += "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100";
-                } else {
-                    btnClass += "bg-slate-50 border-slate-200/80 text-slate-700 hover:bg-slate-100";
-                }
-
-                return `
-                    <button type="button" onclick="onCalendarMonthSelect(${mIdx})" class="${btnClass}">
-                        ${name}
+                <!-- 5. Footer ด้านล่าง -->
+                <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs px-1">
+                    <button type="button" id="cal-clear-btn" class="px-3 py-1.5 rounded-xl font-bold text-rose-500 hover:bg-rose-50 transition-all active:scale-95 cursor-pointer">
+                        ล้างค่า
                     </button>
-                `;
-            }).join('')}
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" id="cal-full-month-btn" class="px-3 py-1.5 rounded-xl font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all active:scale-95 cursor-pointer">
+                            ทั้งเดือนนี้
+                        </button>
+                        <button type="button" id="cal-today-btn" class="px-3.5 py-1.5 rounded-xl font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95 cursor-pointer">
+                            วันนี้
+                        </button>
+                    </div>
+                </div>
+
+            </div>
         </div>
-    `;
-}
+        `;
+        document.body.insertAdjacentHTML("beforeend", modalHTML);
+    }
 
-function setCalendarMode(mode) {
-    calSelectionMode = mode;
-    calStartDate = null;
-    calEndDate = null;
-    renderCalendarModalHTML();
-}
+    bindEvents() {
+        const modal = document.getElementById("lanto-calendar-modal");
+        const monthBtn = document.getElementById("cal-month-btn");
+        const yearBtn = document.getElementById("cal-year-btn");
+        const monthMenu = document.getElementById("cal-month-menu");
+        const yearMenu = document.getElementById("cal-year-menu");
 
-function navigateCalendarMonth(delta) {
-    calViewDate.setMonth(calViewDate.getMonth() + delta);
-    renderCalendarModalHTML();
-}
+        const modeDayBtn = document.getElementById("cal-mode-day-btn");
+        const modeMonthBtn = document.getElementById("cal-mode-month-btn");
 
-function onCalendarDayClick(year, month, day) {
-    const pickedDate = new Date(year, month, day);
+        modeDayBtn.onclick = () => this.switchMode('day');
+        modeMonthBtn.onclick = () => this.switchMode('month');
 
-    if (calSelectionMode === 'single') {
-        calStartDate = pickedDate;
-        calEndDate = null;
-        applyCalendarSelection(); // ถ้าเลือกวันเดียวให้บันทึกเลยทันที
-    } else if (calSelectionMode === 'range') {
-        if (!calStartDate || (calStartDate && calEndDate)) {
-            calStartDate = pickedDate;
-            calEndDate = null;
-        } else {
-            if (pickedDate < calStartDate) {
-                calEndDate = calStartDate;
-                calStartDate = pickedDate;
+        if (monthBtn) {
+            monthBtn.onclick = (e) => {
+                e.stopPropagation();
+                yearMenu.classList.add("hidden");
+                monthMenu.classList.toggle("hidden");
+            };
+        }
+
+        if (yearBtn) {
+            yearBtn.onclick = (e) => {
+                e.stopPropagation();
+                monthMenu.classList.add("hidden");
+                yearMenu.classList.toggle("hidden");
+            };
+        }
+
+        document.getElementById("cal-prev-btn").onclick = () => {
+            this.closeAllDropdowns();
+            if (this.mode === 'day') {
+                this.viewMonth--;
+                if (this.viewMonth < 0) {
+                    this.viewMonth = 11;
+                    this.viewYear--;
+                }
             } else {
-                calEndDate = pickedDate;
+                this.viewYear--;
+            }
+            this.render();
+        };
+
+        document.getElementById("cal-next-btn").onclick = () => {
+            this.closeAllDropdowns();
+            if (this.mode === 'day') {
+                this.viewMonth++;
+                if (this.viewMonth > 11) {
+                    this.viewMonth = 0;
+                    this.viewYear++;
+                }
+            } else {
+                this.viewYear++;
+            }
+            this.render();
+        };
+
+        document.getElementById("cal-clear-btn").onclick = () => {
+            this.startDate = null;
+            this.endDate = null;
+            this.startMonthIdx = null;
+            this.endMonthIdx = null;
+            this.hoverDate = null;
+            if (this.targetInput) {
+                this.targetInput.value = "";
+                this.targetInput.dispatchEvent(new Event("change", { bubbles: true }));
+                this.targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            this.close();
+        };
+
+        document.getElementById("cal-full-month-btn").onclick = () => {
+            const firstDate = new Date(this.viewYear, this.viewMonth, 1);
+            const lastDate = new Date(this.viewYear, this.viewMonth + 1, 0);
+            this.startDate = firstDate;
+            this.endDate = lastDate;
+            this.applyRange();
+        };
+
+        document.getElementById("cal-today-btn").onclick = () => {
+            const today = new Date();
+            this.startDate = today;
+            this.endDate = today;
+            this.applyRange();
+        };
+
+        if (modal) {
+            modal.onclick = () => this.close();
+        }
+
+        document.addEventListener("mouseup", () => {
+            if (this.isDragging) {
+                this.isDragging = false;
+                if (this.startDate && this.hoverDate) {
+                    if (this.hoverDate < this.startDate) {
+                        this.endDate = new Date(this.startDate);
+                        this.startDate = new Date(this.hoverDate);
+                    } else {
+                        this.endDate = new Date(this.hoverDate);
+                    }
+                    this.hoverDate = null;
+                    this.applyRange();
+                }
+            }
+        });
+
+        // 🟢 รองรับทั้ง .lanto-calendar-input, .calendar-trigger และ #custom-date-picker เดิม
+        document.addEventListener("click", (e) => {
+            const input = e.target.closest(".lanto-calendar-input, .calendar-trigger, #custom-date-picker");
+            if (input) {
+                e.preventDefault();
+                this.open(input);
+            }
+        }, true);
+    }
+
+    switchMode(newMode) {
+        this.mode = newMode;
+        this.closeAllDropdowns();
+
+        const dayBtn = document.getElementById("cal-mode-day-btn");
+        const monthBtn = document.getElementById("cal-mode-month-btn");
+        const daysView = document.getElementById("cal-days-view-container");
+        const monthsView = document.getElementById("cal-months-view-container");
+        const monthDropdownWrap = document.getElementById("cal-month-dropdown-wrapper");
+
+        if (this.mode === 'day') {
+            dayBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all bg-white text-slate-800 shadow-xs cursor-pointer";
+            monthBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-500 hover:text-slate-800 cursor-pointer";
+            daysView.classList.remove("hidden");
+            monthsView.classList.add("hidden");
+            if (monthDropdownWrap) monthDropdownWrap.classList.remove("hidden");
+        } else {
+            monthBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all bg-white text-slate-800 shadow-xs cursor-pointer";
+            dayBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-500 hover:text-slate-800 cursor-pointer";
+            monthsView.classList.remove("hidden");
+            daysView.classList.add("hidden");
+            if (monthDropdownWrap) monthDropdownWrap.classList.add("hidden");
+        }
+
+        this.render();
+    }
+
+    closeAllDropdowns() {
+        document.getElementById("cal-month-menu")?.classList.add("hidden");
+        document.getElementById("cal-year-menu")?.classList.add("hidden");
+    }
+
+    parseThaiDate(str) {
+        if (!str) return null;
+        const parts = str.trim().split("/");
+        if (parts.length === 3) {
+            let y = parseInt(parts[2], 10);
+            if (y > 2400) y -= 543;
+            return new Date(y, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        }
+        return null;
+    }
+
+    formatDate(d) {
+        const thaiYear = d.getFullYear() + 543;
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${day}/${month}/${thaiYear}`;
+    }
+
+    open(inputElement) {
+        this.targetInput = inputElement;
+        this.closeAllDropdowns();
+        this.isDragging = false;
+        this.hoverDate = null;
+        this.startMonthIdx = null;
+        this.endMonthIdx = null;
+
+        const val = inputElement.value ? inputElement.value.trim() : "";
+        if (val.includes(" - ")) {
+            const [sStr, eStr] = val.split(" - ");
+            this.startDate = this.parseThaiDate(sStr);
+            this.endDate = this.parseThaiDate(eStr);
+        } else if (val) {
+            this.startDate = this.parseThaiDate(val);
+            this.endDate = this.startDate ? new Date(this.startDate) : null;
+        } else {
+            this.startDate = null;
+            this.endDate = null;
+        }
+
+        const baseDate = this.startDate || new Date();
+        this.viewYear = baseDate.getFullYear();
+        this.viewMonth = baseDate.getMonth();
+
+        const targetMode = inputElement.getAttribute('data-mode') || 'day';
+        this.switchMode(targetMode);
+
+        const modal = document.getElementById("lanto-calendar-modal");
+        if (modal) modal.classList.remove("hidden");
+    }
+
+    close() {
+        this.closeAllDropdowns();
+        const modal = document.getElementById("lanto-calendar-modal");
+        if (modal) modal.classList.add("hidden");
+    }
+
+    applyRange() {
+        if (!this.startDate) return;
+        if (!this.endDate) this.endDate = new Date(this.startDate);
+
+        let resultText = '';
+        if (this.targetInput && this.targetInput.getAttribute('data-mode') === 'month') {
+            const thaiM = this.thaiMonths[this.startDate.getMonth()];
+            const thaiY = this.startDate.getFullYear() + 543;
+            resultText = `${thaiM} ${thaiY}`;
+        } else {
+            const startStr = this.formatDate(this.startDate);
+            const endStr = this.formatDate(this.endDate);
+            resultText = (startStr === endStr) ? startStr : `${startStr} - ${endStr}`;
+        }
+
+        if (this.targetInput) {
+            this.targetInput.value = resultText;
+            this.targetInput.dispatchEvent(new Event("change", { bubbles: true }));
+            this.targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        this.close();
+    }
+
+    handleMonthClick(monthIndex) {
+        if (this.targetInput && this.targetInput.getAttribute('data-single-month') === 'true') {
+            this.startDate = new Date(this.viewYear, monthIndex, 1);
+            this.endDate = new Date(this.viewYear, monthIndex + 1, 0);
+            this.applyRange();
+            return;
+        }
+
+        if (this.startMonthIdx === null || (this.startMonthIdx !== null && this.endMonthIdx !== null)) {
+            this.startMonthIdx = monthIndex;
+            this.endMonthIdx = null;
+            this.renderMonthGrid();
+        } else {
+            let sIdx = this.startMonthIdx;
+            let eIdx = monthIndex;
+            if (eIdx < sIdx) {
+                const temp = sIdx;
+                sIdx = eIdx;
+                eIdx = temp;
+            }
+            this.startDate = new Date(this.viewYear, sIdx, 1);
+            this.endDate = new Date(this.viewYear, eIdx + 1, 0);
+            this.applyRange();
+        }
+    }
+
+    render() {
+        document.getElementById("cal-month-label").innerText = this.thaiMonths[this.viewMonth];
+        document.getElementById("cal-year-label").innerText = `พ.ศ. ${this.viewYear + 543}`;
+
+        const monthMenu = document.getElementById("cal-month-menu");
+        monthMenu.innerHTML = this.thaiMonths.map((m, idx) => `
+            <div onclick="window.lantoCalendar.setMonth(${idx})" class="px-3 py-1.5 rounded-xl font-semibold cursor-pointer transition-colors ${
+                idx === this.viewMonth ? 'bg-blue-600 text-white font-bold' : 'text-slate-700 hover:bg-slate-100'
+            }">${m}</div>
+        `).join("");
+
+        const yearMenu = document.getElementById("cal-year-menu");
+        const curY = new Date().getFullYear();
+        let yearHTML = "";
+        for (let y = curY + 5; y >= curY - 80; y--) {
+            yearHTML += `
+                <div onclick="window.lantoCalendar.setYear(${y})" class="px-3 py-1.5 rounded-xl font-semibold cursor-pointer transition-colors ${
+                    y === this.viewYear ? 'bg-blue-600 text-white font-bold' : 'text-slate-700 hover:bg-slate-100'
+                }">พ.ศ. ${y + 543}</div>
+            `;
+        }
+        yearMenu.innerHTML = yearHTML;
+
+        if (this.mode === 'day') {
+            this.renderDaysGrid();
+        } else {
+            this.renderMonthGrid();
+        }
+    }
+
+    renderDaysGrid() {
+        const grid = document.getElementById("cal-days-grid");
+        if (!grid) return;
+        grid.innerHTML = "";
+
+        const firstDayIndex = new Date(this.viewYear, this.viewMonth, 1).getDay();
+        const lastDate = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+        const prevLastDate = new Date(this.viewYear, this.viewMonth, 0).getDate();
+
+        for (let i = firstDayIndex; i > 0; i--) {
+            const dayNum = prevLastDate - i + 1;
+            grid.innerHTML += `<div class="h-10 flex items-center justify-center text-xs text-slate-300 font-medium cursor-default">${dayNum}</div>`;
+        }
+
+        let curStart = this.startDate ? new Date(this.startDate.getFullYear(), this.startDate.getMonth(), this.startDate.getDate()).getTime() : null;
+        let curEnd = this.endDate ? new Date(this.endDate.getFullYear(), this.endDate.getMonth(), this.endDate.getDate()).getTime() : null;
+
+        if (this.isDragging && this.hoverDate && curStart) {
+            let hoverTime = new Date(this.hoverDate.getFullYear(), this.hoverDate.getMonth(), this.hoverDate.getDate()).getTime();
+            if (hoverTime < curStart) {
+                curEnd = curStart;
+                curStart = hoverTime;
+            } else {
+                curEnd = hoverTime;
             }
         }
-        renderCalendarModalHTML();
+
+        const todayTime = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+
+        for (let day = 1; day <= lastDate; day++) {
+            const cellDate = new Date(this.viewYear, this.viewMonth, day);
+            const cellTime = cellDate.getTime();
+
+            const isStart = curStart && cellTime === curStart;
+            const isEnd = curEnd && cellTime === curEnd;
+            const isInRange = curStart && curEnd && cellTime > curStart && cellTime < curEnd;
+            const isToday = cellTime === todayTime;
+
+            let containerClasses = "h-10 flex items-center justify-center relative cursor-pointer ";
+            let pillClasses = "h-9 w-9 flex items-center justify-center text-xs font-semibold transition-all relative z-10 ";
+
+            if (isStart && isEnd) {
+                pillClasses += "bg-blue-600 text-white rounded-2xl shadow-md shadow-blue-500/30 scale-105";
+            } else if (isStart) {
+                containerClasses += "bg-gradient-to-r from-transparent to-blue-50 rounded-l-2xl";
+                pillClasses += "bg-blue-600 text-white rounded-2xl shadow-md shadow-blue-500/30";
+            } else if (isEnd) {
+                containerClasses += "bg-gradient-to-l from-transparent to-blue-50 rounded-r-2xl";
+                pillClasses += "bg-blue-600 text-white rounded-2xl shadow-md shadow-blue-500/30";
+            } else if (isInRange) {
+                containerClasses += "bg-blue-50";
+                pillClasses += "text-blue-700 font-bold";
+            } else if (isToday) {
+                pillClasses += "bg-slate-100 text-blue-600 font-bold border border-blue-300 rounded-2xl";
+            } else {
+                pillClasses += "text-slate-700 hover:bg-slate-100 rounded-2xl";
+            }
+
+            const cell = document.createElement("div");
+            cell.className = containerClasses;
+
+            cell.onmousedown = (e) => {
+                e.preventDefault();
+                this.isDragging = true;
+                this.startDate = cellDate;
+                this.endDate = null;
+                this.hoverDate = cellDate;
+                this.renderDaysGrid();
+            };
+
+            cell.onmouseenter = () => {
+                if (this.isDragging) {
+                    this.hoverDate = cellDate;
+                    this.renderDaysGrid();
+                }
+            };
+
+            cell.onclick = () => {
+                if (!this.startDate || (this.startDate && this.endDate)) {
+                    this.startDate = cellDate;
+                    this.endDate = null;
+                    this.renderDaysGrid();
+                } else {
+                    if (cellDate < this.startDate) {
+                        this.endDate = new Date(this.startDate);
+                        this.startDate = cellDate;
+                    } else {
+                        this.endDate = cellDate;
+                    }
+                    this.applyRange();
+                }
+            };
+
+            cell.innerHTML = `<span class="${pillClasses}">${day}</span>`;
+            grid.appendChild(cell);
+        }
+    }
+
+    renderMonthGrid() {
+        const grid = document.getElementById("cal-months-grid");
+        if (!grid) return;
+        grid.innerHTML = "";
+
+        this.thaiMonths.forEach((mName, idx) => {
+            const isStart = this.startMonthIdx === idx;
+            const isEnd = this.endMonthIdx === idx;
+            const isInRange = this.startMonthIdx !== null && this.endMonthIdx !== null && idx > this.startMonthIdx && idx < this.endMonthIdx;
+
+            let btnClasses = "h-14 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center cursor-pointer ";
+
+            if (isStart && !this.endMonthIdx) {
+                btnClasses += "bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-102";
+            } else if (isStart || isEnd) {
+                btnClasses += "bg-blue-600 text-white shadow-md shadow-blue-500/30";
+            } else if (isInRange) {
+                btnClasses += "bg-blue-50 text-blue-700 font-black";
+            } else {
+                btnClasses += "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 active:scale-95";
+            }
+
+            const monthDiv = document.createElement("div");
+            monthDiv.className = btnClasses;
+            monthDiv.innerHTML = `
+                <span>${mName}</span>
+                <span class="text-[10px] opacity-60 font-normal">เดือนที่ ${idx + 1}</span>
+            `;
+            monthDiv.onclick = () => this.handleMonthClick(idx);
+            grid.appendChild(monthDiv);
+        });
+    }
+
+    setMonth(monthIdx) {
+        this.viewMonth = monthIdx;
+        this.closeAllDropdowns();
+        this.render();
+    }
+
+    setYear(year) {
+        this.viewYear = year;
+        this.closeAllDropdowns();
+        this.render();
     }
 }
 
-function onCalendarMonthSelect(monthIndex) {
-    const year = calViewDate.getFullYear();
-    calStartDate = new Date(year, monthIndex, 1);
-    calEndDate = new Date(year, monthIndex + 1, 0);
-    applyCalendarSelection();
-}
+// สร้าง Instance หลัก
+window.lantoCalendar = new LantoCalendar();
 
-function selectCalendarShortcut(type) {
-    const now = new Date();
-    if (type === 'today') {
-        calStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        calEndDate = null;
-        calSelectionMode = 'single';
-    } else if (type === 'yesterday') {
-        const yest = new Date(now);
-        yest.setDate(yest.getDate() - 1);
-        calStartDate = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate());
-        calEndDate = null;
-        calSelectionMode = 'single';
-    } else if (type === 'thisMonth') {
-        calStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        calEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        calSelectionMode = 'month';
-    }
-    applyCalendarSelection();
-}
-
-function formatToThaiDMY(date) {
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const y = date.getFullYear() + 543;
-    return `${d}/${m}/${y}`;
-}
-
-function applyCalendarSelection() {
-    if (!activeTargetInput) {
-        closeCalendarModal();
-        return;
-    }
-
-    let finalStr = '';
-
-    if (calSelectionMode === 'month' && calStartDate) {
-        finalStr = `${thaiMonthNames[calStartDate.getMonth()]} ${calStartDate.getFullYear() + 543}`;
-    } else if (calStartDate && calEndDate) {
-        finalStr = `${formatToThaiDMY(calStartDate)} - ${formatToThaiDMY(calEndDate)}`;
-    } else if (calStartDate) {
-        finalStr = formatToThaiDMY(calStartDate);
-    }
-
-    if (finalStr) {
-        activeTargetInput.value = finalStr;
-        // ส่ง Event change เพื่อให้ history.js กรองข้อมูลให้อัตโนมัติ
-        activeTargetInput.dispatchEvent(new Event('change'));
-    }
-
-    closeCalendarModal();
-}
-
-function clearCalendarValue() {
-    if (activeTargetInput) {
-        activeTargetInput.value = '';
-        activeTargetInput.dispatchEvent(new Event('change'));
-    }
-    closeCalendarModal();
+// 🟢 ฟังก์ชันสะพานเชื่อม (Backward Compatibility) ป้องกันสคริปต์หน้าเดิมเรียกแล้ว Error
+function openCalendarModal(targetInput) {
+    if (window.lantoCalendar) window.lantoCalendar.open(targetInput);
 }
 
 function closeCalendarModal() {
-    const modal = document.getElementById('ios-calendar-modal');
-    if (modal) modal.remove();
+    if (window.lantoCalendar) window.lantoCalendar.close();
 }

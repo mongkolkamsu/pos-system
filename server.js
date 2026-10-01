@@ -641,9 +641,8 @@ app.get('/api/tts', async (req, res) => {
 });
 
 // ========================================================
-// 🚀 9. เริ่มต้นรัน HTTPS Server
+// 🚀 9. เริ่มต้นรัน HTTPS Server และ Auto-Init ฐานข้อมูล
 // ========================================================
-// กำหนด path ให้รองรับทั้งตอน dev และตอน build เป็นแอปติดตั้งจริง
 const keyPath = (process.resourcesPath && fs.existsSync(path.join(process.resourcesPath, 'key.pem')))
     ? path.join(process.resourcesPath, 'key.pem')
     : path.join(__dirname, 'key.pem');
@@ -657,13 +656,164 @@ const sslOptions = {
     cert: fs.readFileSync(certPath)
 };
 
-https.createServer(sslOptions, app).listen(PORT, '0.0.0.0', async () => {
-    console.log(`🚀 HTTPS Server is running at https://localhost:${PORT}`);
+// ฟังก์ชันตรวจสอบและนำเข้าฐานข้อมูลเริ่มต้นอัตโนมัติ
+async function autoInitDatabase() {
+    const mysql = require('mysql2/promise');
     try {
-        const conn = await db.getConnection();
-        console.log('✅ เชื่อมต่อฐานข้อมูล MySQL pos_db สำเร็จ!');
-        conn.release();
+        const conn = await mysql.createConnection({
+            host: '127.0.0.1',
+            port: 3307,
+            user: 'root',
+            password: '',
+            multipleStatements: true
+        });
+
+        // 1. สร้างฐานข้อมูล pos_db ถ้ายังไม่มี
+        await conn.query('CREATE DATABASE IF NOT EXISTS pos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        await conn.query('USE pos_db');
+
+        // 2. ตรวจสอบว่ามีตาราง products หรือยัง ถ้ายังไม่มี ให้นำเข้า pos_db.sql ทันที
+        const [tables] = await conn.query("SHOW TABLES LIKE 'products'");
+        if (tables.length === 0) {
+            console.log('⚡ ตรวจพบฐานข้อมูลว่าง กำลังนำเข้า pos_db.sql อัตโนมัติ...');
+            const sqlPath = (process.resourcesPath && fs.existsSync(path.join(process.resourcesPath, 'pos_db.sql')))
+                ? path.join(process.resourcesPath, 'pos_db.sql')
+                : path.join(__dirname, 'pos_db.sql');
+
+            if (fs.existsSync(sqlPath)) {
+                let sqlContent = fs.readFileSync(sqlPath, 'utf8');
+                // ตัดอักขระพิเศษส่วนหัวไฟล์ (BOM) ป้องกัน Syntax Error บน Windows
+                sqlContent = sqlContent.replace(/^\uFEFF/, '');
+                await conn.query(sqlContent);
+                console.log('✅ นำเข้าข้อมูลสินค้าเริ่มต้นเรียบร้อยแล้ว!');
+            } else {
+                console.error('❌ ไม่พบไฟล์ pos_db.sql ที่:', sqlPath);
+            }
+        } else {
+            console.log('✅ ฐานข้อมูลมีตาราง products อยู่แล้ว');
+        }
+        await conn.end();
     } catch (err) {
-        console.error('❌ เชื่อมต่อ MySQL ไม่สำเร็จ:', err.message);
+        console.error('⚠️ ระบบ Auto-Init DB แจ้งเตือน:', err.message);
     }
-});
+}
+
+// ========================================================
+// 💾 ระบบสำรองข้อมูลอัตโนมัติ (Auto-Backup ย้อนหลัง 30 วัน)
+// ========================================================
+const BACKUP_DIR = 'C:\\ProgramData\\POS_System\\backups';
+const RETENTION_DAYS = 30; // เก็บย้อนหลังสูงสุด 30 วัน
+
+// 1. ตรวจสอบและสร้างโฟลเดอร์ backups ถ้ายังไม่มี
+if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+}
+
+// 2. ฟังก์ชันลบไฟล์สำรองที่เก่าเกิน 30 วันทิ้งอัตโนมัติ
+function cleanOldBackups() {
+    try {
+        const files = fs.readdirSync(BACKUP_DIR);
+        const now = Date.now();
+        const maxAgeMs = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+        files.forEach(file => {
+            if (file.endsWith('.sql')) {
+                const filePath = path.join(BACKUP_DIR, file);
+                const stats = fs.statSync(filePath);
+                if (now - stats.mtimeMs > maxAgeMs) {
+                    fs.unlinkSync(filePath);
+                    console.log(`🗑️ ลบไฟล์สำรองเก่าเกิน 30 วัน: ${file}`);
+                }
+            }
+        });
+    } catch (err) {
+        console.error('⚠️ ข้อผิดพลาดในการลบไฟล์สำรองเก่า:', err.message);
+    }
+}
+
+// 3. ฟังก์ชันหลักสำหรับดึงข้อมูลตารางและสร้างไฟล์สำรอง
+async function performDailyBackup() {
+    try {
+        cleanOldBackups(); // ลบไฟล์เก่าเกิน 30 วันก่อนเสมอ
+
+        const todayStr = new Date().toISOString().slice(0, 10); // เช่น 2026-10-01
+        const backupFileName = `pos_db_${todayStr}.sql`;
+        const backupFilePath = path.join(BACKUP_DIR, backupFileName);
+
+        // ถ้าวันนี้สำรองไปแล้ว ไม่ต้องทำซ้ำ
+        if (fs.existsSync(backupFilePath)) {
+            console.log(`💾 วันนี้ (${todayStr}) มีไฟล์สำรองข้อมูลอยู่แล้ว`);
+            return;
+        }
+
+        console.log(`⏳ กำลังสำรองข้อมูลประจำวัน (${todayStr})...`);
+
+        // หาตำแหน่งไฟล์ mysqldump.exe จาก db-engine
+        const dbEnginePath = (process.resourcesPath && fs.existsSync(path.join(process.resourcesPath, 'db-engine')))
+            ? path.join(process.resourcesPath, 'db-engine')
+            : path.join(__dirname, 'db-engine');
+
+        const mysqldumpBin = path.join(dbEnginePath, 'bin', 'mysqldump.exe');
+
+        // ตรวจสอบว่ามี mysqldump.exe หรือไม่ ถ้ามีให้รันผ่าน mysqldump
+        if (fs.existsSync(mysqldumpBin)) {
+            const { exec } = require('child_process');
+            const cmd = `"${mysqldumpBin}" --host=127.0.0.1 --port=3307 --user=root pos_db > "${backupFilePath}"`;
+            exec(cmd, (error) => {
+                if (error) {
+                    console.error('❌ ไม่สามารถสำรองข้อมูลผ่าน mysqldump ได้:', error.message);
+                } else {
+                    console.log(`✅ สำรองข้อมูลอัตโนมัติสำเร็จ: ${backupFileName}`);
+                }
+            });
+        } else {
+            // สำรองตารางแบบ Native ผ่านคำสั่ง MySQL Pool โดยตรง (กรณีหาไฟล์ exe ไม่เจอ)
+            const tables = ['products', 'categories', 'orders', 'order_items', 'debt_payments'];
+            let dumpSql = `-- POS Backup created at: ${new Date().toISOString()}\n\n`;
+
+            for (const table of tables) {
+                const [rows] = await db.query(`SELECT * FROM ${table}`);
+                if (rows.length > 0) {
+                    dumpSql += `DELETE FROM \`${table}\`;\n`;
+                    for (const row of rows) {
+                        const keys = Object.keys(row).map(k => `\`${k}\``).join(', ');
+                        const values = Object.values(row).map(v => {
+                            if (v === null) return 'NULL';
+                            if (typeof v === 'number') return v;
+                            return `'${String(v).replace(/'/g, "\\'")}'`;
+                        }).join(', ');
+                        dumpSql += `INSERT INTO \`${table}\` (${keys}) VALUES (${values});\n`;
+                    }
+                    dumpSql += '\n';
+                }
+            }
+
+            fs.writeFileSync(backupFilePath, dumpSql, 'utf8');
+            console.log(`✅ สำรองข้อมูลสำเร็จ (Native Mode): ${backupFileName}`);
+        }
+    } catch (err) {
+        console.error('❌ ล้มเหลวในการสำรองข้อมูลประจำวัน:', err.message);
+    }
+}
+// บังคับให้ฐานข้อมูลเตรียมการเสร็จก่อน แล้วค่อยเปิดให้หน้าเว็บเชื่อมต่อ
+async function startServer() {
+    await autoInitDatabase();
+
+    https.createServer(sslOptions, app).listen(PORT, '0.0.0.0', async () => {
+        console.log(`🚀 HTTPS Server is running at https://localhost:${PORT}`);
+        try {
+            const conn = await db.getConnection();
+            console.log('✅ เชื่อมต่อฐานข้อมูล MySQL pos_db สำเร็จ!');
+            conn.release();
+
+            // 🟢 เรียกสำรองข้อมูลทันทีที่เปิดโปรแกรม และตั้งเวลาเช็กทุก 24 ชั่วโมง
+            performDailyBackup();
+            setInterval(performDailyBackup, 24 * 60 * 60 * 1000);
+
+        } catch (err) {
+            console.error('❌ เชื่อมต่อ MySQL ไม่สำเร็จ:', err.message);
+        }
+    });
+}
+
+startServer();

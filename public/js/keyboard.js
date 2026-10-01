@@ -108,6 +108,7 @@
     }
 
     function mountToggleSwitch() {
+        return;
         let toggleBtn = document.getElementById('pos-vk-global-toggle-btn');
         
         const searchInput = 
@@ -172,6 +173,11 @@
         isKeyboardGlobalEnabled = !isKeyboardGlobalEnabled;
         localStorage.setItem('pos_vk_enabled', isKeyboardGlobalEnabled ? 'true' : 'false');
         updateKeyboardToggleButtonUI();
+
+        // 🟢 อัปเดตสวิตช์ใน Sidebar ให้เปิด/ปิดตาม
+        if (typeof window.syncKeyboardToggleState === 'function') {
+            window.syncKeyboardToggleState();
+        }
 
         if (!isKeyboardGlobalEnabled) {
             closeVirtualKeyboard();
@@ -544,6 +550,4 @@
     } else {
         initVirtualKeyboard();
     }
-    setTimeout(mountToggleSwitch, 150);
-    setTimeout(mountToggleSwitch, 600);
 })();

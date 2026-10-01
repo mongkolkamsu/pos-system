@@ -10,72 +10,139 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="js/JsBarcode.all.min.js"></script>
     
     <style>
-        *, body { font-family: 'Sarabun', 'Inter', sans-serif !important; }
+        *, body { font-family: 'Sarabun', 'Inter', sans-serif !important; box-sizing: border-box; }
         
+        .preview-a4-sheet {
+            width: 100%;
+            max-width: 680px;
+            aspect-ratio: 210 / 297;
+            background: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+            border: 1px solid #cbd5e1;
+            padding: 16px 20px 32px 20px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .preview-grid-12 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 8px;
+            flex: 1;
+            min-height: 0;
+            margin-top: 6px;
+        }
+
+        .preview-grid-compact {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(7, 1fr); 
+            gap: 8px;
+            flex: 1;
+            margin-top: 6px;
+            min-height: 0;
+        }
+
+        .preview-tag-card {
+            border: 1.5px dashed #94a3b8;
+            border-radius: 8px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            text-align: center;
+            background: white;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .preview-tag-card-compact {
+            border: 1.5px dashed #64748b;
+            border-radius: 8px;
+            padding: 8px 6px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            text-align: center;
+            background: white;
+            height: 100%;
+            overflow: hidden;
+            gap: 4px;
+        }
+
+        .preview-tag-card-compact p, .preview-tag-card p {
+            line-height: 1.6 !important;
+            padding-top: 4px !important;
+        }
+
+        #print-preview-modal.print-bw #preview-sheets-container { filter: grayscale(100%) contrast(130%) !important; }
+
         @media print {
-            .no-print { display: none !important; }
-            body { 
-                background: white !important; 
-                padding: 6mm 6mm !important; 
-                margin: 0 !important; 
-            }
-            #print-area { 
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important; /* ล็อก 3 คอลัมน์ */
-                gap: 3mm !important; /* บีบช่องว่างระหว่างการ์ด */
-                padding: 0 !important; 
-            }
-            .tag-card { 
-                break-inside: avoid !important; 
-                page-break-inside: avoid !important;
-                border: 1.5px dashed #334155 !important; /* 🌟 รอยปะสีเข้มคมชัด ตัดง่าย 🌟 */
-                padding: 5px 8px !important;
+            .print-header-info { display: none !important; }
+            body { background: white !important; margin: 0; padding: 0 !important; }
+            .preview-a4-sheet {
                 box-shadow: none !important;
-                border-radius: 12px !important;
+                border: none !important;
+                width: 100% !important;
+                height: 100% !important;
+                max-width: none !important;
+                padding: 5mm 5mm 12mm 5mm !important;
+                margin: 0 !important;
+                page-break-after: always;
+                aspect-ratio: 210 / 297 !important;
             }
-            /* 🌟 ย่อขนาดเฉพาะตอนพิมพ์ เพื่อให้ดึงแถวที่ 4 ขึ้นมาได้พอดี (12 ชิ้น/หน้า) 🌟 */
-            .tag-card .tag-img-box {
-                height: 72px !important;
-                margin-bottom: 2px !important;
-            }
-            .tag-card p {
-                font-size: 11px !important;
-                min-height: 28px !important;
-                line-height: 1.2 !important;
-            }
-            .tag-card .tag-barcode-box {
-                min-height: 38px !important;
-                margin: 1px 0 !important;
-            }
-            .tag-card .tag-barcode-box svg {
-                height: 38px !important;
-            }
-            .tag-card .tag-price {
-                font-size: 17px !important;
-                padding-top: 2px !important;
-            }
-            .tag-unselected { display: none !important; }
+        }
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+
+        ::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent !important;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 9999px !important;
+            border: none !important;
+            min-height: 40px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
         }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen p-4 sm:p-6 text-slate-800 antialiased">
 
-    <!-- แถบควบคุมด้านบน (ซ่อนอัตโนมัติตอนกดพิมพ์) -->
+    <!-- แถบควบคุมด้านบน -->
     <div class="no-print max-w-6xl mx-auto bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm mb-6 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <a href="index.html" class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition active:scale-95 cursor-pointer">
+                <button type="button" onclick="smartGoBack()" title="ปิดหน้านี้" 
+                        class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition active:scale-95 cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
-                </a>
+                </button>
                 <div>
                     <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">พิมพ์ป้ายสินค้า / บาร์โค้ด</h1>
                     <p class="text-xs text-slate-400 font-medium">แสดงรูปภาพ ชื่อสินค้า บาร์โค้ด และราคา</p>
                 </div>
             </div>
 
-            <!-- กลุ่มปุ่มแอ็กชัน -->
             <div class="flex items-center gap-2">
                 <button type="button" onclick="handlePrintAction()" class="px-4 sm:px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-bold transition active:scale-95 shadow-md flex items-center gap-2 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
@@ -90,14 +157,12 @@
         </div>
 
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
-            <!-- ค้นหาชื่อ/บาร์โค้ด -->
             <div class="relative flex-1 min-w-[200px]">
                 <input type="text" id="search-input" oninput="renderTags(true)" placeholder="ค้นหาชื่อสินค้า หรือรหัสบาร์โค้ด..." 
                        class="w-full h-10 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium focus:outline-none focus:border-slate-400 transition">
                 <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
 
-            <!-- ดรอปดาวน์หมวดหมู่สินค้าสไตล์ iOS ขอบมน -->
             <div class="relative w-full sm:w-56 flex-shrink-0" id="category-dropdown-wrapper">
                 <input type="hidden" id="category-select" value="all">
                 <button type="button" id="category-dropdown-btn" onclick="toggleCategoryDropdown()" 
@@ -113,10 +178,9 @@
                 </div>
             </div>
 
-            <!-- ตัวกรองรูปภาพ & ปุ่มเลือกทั้งหมด -->
             <div class="flex items-center gap-3 flex-shrink-0">
                 <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
-                    <input type="checkbox" id="only-has-image" checked onchange="renderTags(true)" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
+                    <input type="checkbox" id="only-has-image" checked onchange="handleImageCheckboxChange()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
                     <span>เฉพาะที่มีรูป</span>
                 </label>
 
@@ -127,16 +191,86 @@
         </div>
     </div>
 
-    <!-- พื้นที่แสดงป้ายสินค้า (กริดพิมพ์) -->
-    <div id="print-area" class="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 pb-12">
+    <!-- หน้าต่าง Print Preview -->
+    <div id="print-preview-modal" class="no-print fixed inset-0 bg-slate-200 z-50 flex flex-col hidden select-none animate-in fade-in duration-150">
+        <div class="bg-white border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-xs flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-sm">📄</div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 leading-tight">ตัวอย่างก่อนพิมพ์ (Print Preview)</h3>
+                    <p class="text-[11px] text-slate-500">ปรับแต่งตัวเลือกด้านล่าง แล้วตรวจสอบหน้ากระดาษก่อนสั่งพิมพ์</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80">
+                <div class="flex bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs text-xs font-bold">
+                    <button type="button" id="mode-btn-color" onclick="setPrintColorMode(true)" 
+                            class="px-3 py-1 rounded-lg bg-blue-600 text-white shadow-2xs transition cursor-pointer">
+                        🎨 สี
+                    </button>
+                    <button type="button" id="mode-btn-bw" onclick="setPrintColorMode(false)" 
+                            class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer">
+                        ⬛ ขาวดำ
+                    </button>
+                </div>
+
+                <div class="w-px h-5 bg-slate-300"></div>
+
+                <div class="flex items-center gap-2.5 text-xs font-bold text-slate-700">
+                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-opt-img" checked onchange="updateTagElements()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
+                        <span>รูปภาพ</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-opt-barcode" checked onchange="updateTagElements()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
+                        <span>บาร์โค้ด</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-opt-price" checked onchange="updateTagElements()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
+                        <span>ราคา</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5">
+                <span id="preview-page-info" class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
+                    กำลังคำนวณหน้า...
+                </span>
+                
+                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
+                    <span>พิมพ์หน้า:</span>
+                    <input type="text" id="print-page-range" value="ทั้งหมด" placeholder="เช่น 1 หรือ 1-2" 
+                        onfocus="this.select()" 
+                        oninput="filterPreviewPages()" 
+                        class="w-20 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500 text-center">
+                </div>
+
+                <button type="button" onclick="closePrintPreview()" 
+                        class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer">
+                    ยกเลิก / แก้ไข
+                </button>
+
+                <button type="button" id="confirm-print-btn" onclick="executeFinalPrint()" 
+                        class="px-4 py-1.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95">
+                    <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    <span>ยืนยันพิมพ์ออกเครื่อง HP</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center gap-8 bg-slate-200">
+            <div id="preview-sheets-container" class="flex flex-col items-center gap-8 w-full max-w-[760px]"></div>
+        </div>
     </div>
 
+    <div id="print-area" class="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 pb-12"></div>
+    <script src="js/sidebar.js"></script>
     <script>
+        window.placeholderSVG = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%239CA3AF%22%3E%3Cpath stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%221.5%22 d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E";
+
         let allProducts = [];
         let categories = [];
         let selectedIds = new Set();
-        
-        // 🌟 โหลดทีละ 40 รายการเพื่อไม่ให้กระตุก 🌟
         let visibleProductLimit = 40;
         let currentFilteredProducts = [];
 
@@ -160,7 +294,6 @@
                 console.error('Fetch data error:', err);
             }
 
-            // 🌟 เลื่อนลงล่างแล้วโหลดเพิ่มทีละ 40 รายการแบบลื่นไหล 🌟
             window.addEventListener('scroll', () => {
                 if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 350) {
                     if (visibleProductLimit < currentFilteredProducts.length) {
@@ -235,7 +368,8 @@
         }
 
         function getFormattedImgSrc(rawImg) {
-            if (!rawImg) return '';
+            const isInvalidImg = !rawImg || String(rawImg).trim() === '' || String(rawImg).includes('placeholder.jpg');
+            if (isInvalidImg) return window.placeholderSVG;
             if (rawImg.startsWith('images/') || rawImg.startsWith('/images/') || rawImg.startsWith('http') || rawImg.startsWith('data:')) {
                 return rawImg;
             }
@@ -292,7 +426,7 @@
             currentFilteredProducts = getFilteredProducts();
             const selectedCountEl = document.getElementById('selected-count');
 
-            const activeSelectedCount = currentFilteredProducts.filter(p => selectedIds.has(String(p.id).trim())).length;
+            const activeSelectedCount = allProducts.filter(p => selectedIds.has(String(p.id).trim()) && getFilteredProducts().some(fp => String(fp.id).trim() === String(p.id).trim())).length;
             if (selectedCountEl) selectedCountEl.innerText = activeSelectedCount;
             if (!container) return;
 
@@ -301,7 +435,6 @@
                 return;
             }
 
-            // ตัดเฉพาะจำนวนที่กำหนดมาวาด (ไม่วาด 700 รูปพร้อมกันจนค้าง)
             const paginated = currentFilteredProducts.slice(0, visibleProductLimit);
 
             container.innerHTML = paginated.map(item => {
@@ -313,36 +446,33 @@
 
                 return `
                     <div onclick="toggleCard('${safeId}')" 
-                         class="tag-card bg-white p-3.5 rounded-2xl border-2 ${isSelected ? 'border-blue-600 shadow-sm tag-selected' : 'border-slate-200 bg-slate-50/60 tag-unselected'} transition flex flex-col items-center justify-between text-center relative cursor-pointer select-none">
+                         class="bg-white p-3.5 rounded-2xl border-2 ${isSelected ? 'border-blue-600 shadow-sm' : 'border-slate-200 bg-slate-50/60'} transition flex flex-col justify-between items-center text-center relative cursor-pointer select-none h-full">
                         
                         <div class="no-print absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition ${isSelected ? 'bg-blue-600 text-white shadow-xs' : 'border-2 border-slate-300 bg-white'}">
                             ${isSelected ? `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>` : ''}
                         </div>
 
-                        <!-- 1. รูปภาพสินค้า -->
-                        <div class="tag-img-box w-full h-24 flex items-center justify-center p-1 mb-1">
-                            ${imgSrc ? `<img src="${imgSrc}" class="w-full h-full object-contain" onerror="this.style.display='none'">` : '<span class="text-xs text-slate-300">ไม่มีรูป</span>'}
+                        <div class="w-full h-20 sm:h-24 flex items-center justify-center p-1 my-1">
+                            <img src="${imgSrc}" alt="${item.name}" loading="lazy" class="w-full h-full object-contain" onerror="this.onerror=null; this.src=window.placeholderSVG;">
                         </div>
 
-                        <!-- 2. ชื่อสินค้า -->
-                        <p class="text-xs font-bold text-slate-800 line-clamp-2 w-full px-1 min-h-[34px] flex items-center justify-center leading-snug" title="${item.name}">
-                            ${item.name}
-                        </p>
+                        <div class="w-full">
+                            <p class="text-xs font-bold text-slate-800 line-clamp-2 w-full px-1 min-h-[34px] flex items-center justify-center leading-snug" title="${item.name}">
+                                ${item.name}
+                            </p>
+                        </div>
 
-                        <!-- 3. บาร์โค้ด -->
                         <div class="tag-barcode-box w-full flex flex-col items-center justify-center my-1 min-h-[46px]">
                             <svg id="barcode-${safeId}" class="max-w-full"></svg>
                         </div>
 
-                        <!-- 4. ราคาขาย -->
-                        <div class="w-full pt-1.5 border-t border-slate-100 flex items-center justify-center">
-                            <span class="tag-price text-xl font-black text-slate-900 tracking-tight leading-none">฿${priceFormatted}</span>
+                        <div class="w-full pt-1.5 border-t border-slate-100 flex items-center justify-center mt-auto">
+                            <span class="text-xl font-black text-slate-900 tracking-tight leading-none">฿${priceFormatted}</span>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            // วาดเฉพาะการ์ดที่มองเห็นในหน้านั้นๆ
             paginated.forEach(item => {
                 const cleanId = String(item.id).trim();
                 const svgSelector = `#barcode-${cleanId.replace(/'/g, "\\'")}`;
@@ -373,13 +503,349 @@
             });
         }
 
-        // 🌟 สั่งพิมพ์: ดึงรายการที่เลือกทั้งหมดมาเรนเดอร์ก่อนพิมพ์ 🌟
         function handlePrintAction() {
-            visibleProductLimit = currentFilteredProducts.length;
-            renderTags(false);
-            setTimeout(() => {
-                window.print();
-            }, 120);
+            const selectedProducts = currentFilteredProducts.filter(p => selectedIds.has(String(p.id).trim()));
+
+            if (selectedProducts.length === 0) {
+                alert('กรุณาเลือกป้ายสินค้าอย่างน้อย 1 รายการก่อนดูตัวอย่างพิมพ์');
+                return;
+            }
+
+            document.body.classList.add('overflow-hidden');
+
+            const modal = document.getElementById('print-preview-modal');
+            const container = document.getElementById('preview-sheets-container');
+            const pageInfo = document.getElementById('preview-page-info');
+
+            const showImg = document.getElementById('chk-opt-img')?.checked ?? true;
+            const showBarcode = document.getElementById('chk-opt-barcode')?.checked ?? true;
+            const showPrice = document.getElementById('chk-opt-price')?.checked ?? true;
+
+            const itemsPerPage = showImg ? 12 : 21;
+            const gridClass = showImg ? 'preview-grid-12' : 'preview-grid-compact';
+            const totalItems = selectedProducts.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+            pageInfo.innerText = `ทั้งหมด ${totalItems} ป้าย (${totalPages} แผ่น A4)`;
+            container.innerHTML = '';
+
+            for (let page = 0; page < totalPages; page++) {
+                const pageItems = selectedProducts.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+                const sheet = document.createElement('div');
+                sheet.className = 'preview-a4-sheet';
+
+                sheet.innerHTML = `
+                    <div class="print-header-info flex items-center justify-between pb-1 mb-1 border-b border-slate-200 text-[11px] font-bold text-slate-400 flex-shrink-0">
+                        <span>📄 แผ่นที่ ${page + 1} จาก ${totalPages}</span>
+                        <span>ขนาด A4 แนวตั้ง (${showImg ? '12 ป้าย/แผ่น' : '21 ป้าย/แผ่น'})</span>
+                    </div>
+                    <div class="${gridClass}">
+                        ${pageItems.map(item => {
+                            const imgSrc = getFormattedImgSrc(item.img);
+                            const priceNum = parseFloat(item.price) || 0;
+                            const priceFormatted = priceNum.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                            if (!showImg) {
+                                return `
+                                    <div class="preview-tag-card-compact">
+                                        <p class="text-xs font-bold text-slate-800 line-clamp-1 w-full text-center" style="line-height: 1.6; padding-top: 4px;">${item.name}</p>${showBarcode ? `
+                                            <div class="w-full flex items-center justify-center my-1">
+                                                <svg id="preview-bc-${item.id}" class="max-w-full"></svg>
+                                            </div>
+                                        ` : ''}
+                                        ${showPrice ? `
+                                            <div class="w-full flex items-center justify-center">
+                                                <span class="text-base font-black text-slate-900 leading-none">฿${priceFormatted}</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            } else {
+                                return `
+                                    <div class="preview-tag-card">
+                                        <div class="h-16 w-full flex items-center justify-center">
+                                            <img src="${imgSrc}" class="h-full object-contain" onerror="this.onerror=null; this.src=window.placeholderSVG;">
+                                        </div>
+                                        <p class="text-xs font-bold text-slate-800 line-clamp-1 w-full text-center" style="line-height: 1.6; padding-top: 4px;" title="${item.name}">${item.name}</p>${showBarcode ? `
+                                            <div class="w-full flex items-center justify-center my-1">
+                                                <svg id="preview-bc-${item.id}" class="max-w-full"></svg>
+                                            </div>
+                                        ` : ''}
+                                        ${showPrice ? `
+                                            <div class="w-full pt-1 flex items-center justify-center">
+                                                <span class="text-base font-black text-slate-900 leading-none">฿${priceFormatted}</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            }
+                        }).join('')}
+                    </div>
+                `;
+
+                container.appendChild(sheet);
+
+                if (showBarcode) {
+                    pageItems.forEach(item => {
+                        const cleanId = String(item.id || '').trim();
+                        const svgSel = `#preview-bc-${cleanId}`;
+                        const isEAN13 = /^\d{13}$/.test(cleanId);
+
+                        let rendered = false;
+                        if (isEAN13) {
+                            try {
+                                JsBarcode(svgSel, cleanId, {
+                                    format: "EAN13",
+                                    width: showImg ? 1.2 : 1.3,
+                                    height: showImg ? 30 : 28,
+                                    fontSize: 10,
+                                    margin: 1,
+                                    displayValue: true
+                                });
+                                rendered = true;
+                            } catch (e) {
+                                rendered = false;
+                            }
+                        }
+
+                        if (!rendered) {
+                            try {
+                                JsBarcode(svgSel, cleanId, {
+                                    format: "CODE128",
+                                    width: showImg ? 1.1 : 1.2,
+                                    height: showImg ? 30 : 28,
+                                    fontSize: 10,
+                                    margin: 1,
+                                    displayValue: true
+                                });
+                            } catch (err) {}
+                        }
+                    });
+                }
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function updateTagElements() {
+            handlePrintAction();
+        }
+
+        function closePrintPreview() {
+            const modal = document.getElementById('print-preview-modal');
+            if (modal) modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden', 'hide-img', 'hide-barcode', 'hide-price', 'print-bw');
+        }
+
+        function filterPreviewPages() {
+            const rangeInput = document.getElementById('print-page-range').value.trim().toLowerCase();
+            const allSheets = document.querySelectorAll('.preview-a4-sheet');
+            
+            if (rangeInput === 'all' || rangeInput === 'ทั้งหมด' || rangeInput === '') {
+                allSheets.forEach(sheet => sheet.style.display = 'flex');
+                return;
+            }
+
+            const pagesToPrint = new Set();
+            rangeInput.split(',').forEach(part => {
+                part = part.trim();
+                if (part.includes('-')) {
+                    const [start, end] = part.split('-').map(Number);
+                    for (let i = start; i <= end; i++) {
+                        if (!isNaN(i)) pagesToPrint.add(i);
+                    }
+                } else {
+                    const p = Number(part);
+                    if (!isNaN(p)) pagesToPrint.add(p);
+                }
+            });
+
+            allSheets.forEach((sheet, index) => {
+                const pageNum = index + 1;
+                if (pagesToPrint.has(pageNum)) {
+                    sheet.style.display = 'flex';
+                } else {
+                    sheet.style.display = 'none';
+                }
+            });
+        }
+
+        async function executeFinalPrint() {
+            const btn = document.getElementById('confirm-print-btn');
+            if (!btn || btn.disabled) return;
+
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span>⏳ กำลังส่งพิมพ์...</span>`;
+
+            const previewContainer = document.getElementById('preview-sheets-container');
+            if (!previewContainer || previewContainer.children.length === 0) {
+                alert('ไม่พบข้อมูลแผ่นกระดาษสำหรับพิมพ์');
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                return;
+            }
+
+            const rangeInput = document.getElementById('print-page-range')?.value.trim() || '';
+            const rangeStr = rangeInput.toLowerCase();
+            const allSheets = previewContainer.querySelectorAll('.preview-a4-sheet');
+            let sheetsHtml = '';
+
+            if (rangeStr === 'all' || rangeStr === 'ทั้งหมด' || rangeStr === '') {
+                allSheets.forEach(sheet => sheetsHtml += sheet.outerHTML);
+            } else {
+                const pagesToPrint = new Set();
+                rangeStr.split(',').forEach(part => {
+                    part = part.trim();
+                    if (part.includes('-')) {
+                        const [start, end] = part.split('-').map(Number);
+                        for (let i = start; i <= end; i++) {
+                            if (!isNaN(i)) pagesToPrint.add(i);
+                        }
+                    } else {
+                        const p = Number(part);
+                        if (!isNaN(p)) pagesToPrint.add(p);
+                    }
+                });
+
+                allSheets.forEach((sheet, index) => {
+                    const pageNum = index + 1;
+                    if (pagesToPrint.has(pageNum)) {
+                        sheetsHtml += sheet.outerHTML;
+                    }
+                });
+            }
+
+            if (!sheetsHtml) {
+                alert('ไม่พบหน้าที่ระบุ กรุณาตรวจสอบเลขหน้าใหม่อีกครั้ง (เช่น 1 หรือ 1-2)');
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                return;
+            }
+            // 🟢 แปลงรูปภาพทั้งหมดในหน้าพรีวิวให้เป็น URL แบบสมบูรณ์ (Absolute URL) เพื่อให้ตอนพิมพ์ภาพไม่หาย
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = sheetsHtml;
+            tempDiv.querySelectorAll('img').forEach(img => {
+                const src = img.getAttribute('src');
+                if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                    img.src = `${window.location.origin}/${src.replace(/^\//, '')}`;
+                }
+            });
+            const processedSheetsHtml = tempDiv.innerHTML;
+            const fullPrintHtml = `
+                <!DOCTYPE html>
+                <html lang="th">
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        *, body { font-family: 'Sarabun', 'Inter', sans-serif !important; box-sizing: border-box; }
+                        body { background: white !important; margin: 0; padding: 0; color: #1e293b; }
+                        .print-header-info { display: none !important; }
+                        .preview-a4-sheet {
+                            width: 210mm !important;
+                            height: 297mm !important;
+                            max-width: none !important;
+                            box-shadow: none !important;
+                            border: none !important;
+                            padding: 10mm 10mm 15mm 10mm !important;
+                            margin: 0 auto !important;
+                            page-break-after: always;
+                            display: flex;
+                            flex-direction: column;
+                            box-sizing: border-box;
+                            overflow: hidden;
+                        }
+                        .flex { display: flex; }
+                        .items-center { align-items: center; }
+                        .justify-between { justify-content: space-between; }
+                        .justify-center { justify-content: center; }
+                        .flex-col { flex-direction: column; }
+                        .text-center { text-align: center; }
+                        .font-bold { font-weight: bold; }
+                        .font-black { font-weight: 900; }
+                        .text-xs { font-size: 11px; }
+                        .text-sm { font-size: 14px; }
+                        .text-base { font-size: 15px; }
+                        .text-slate-800 { color: #1e293b; }
+                        .text-slate-900 { color: #0f172a; }
+                        
+                        .preview-grid-12 {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 8px;
+                            margin-top: 6px;
+                        }
+                        .preview-grid-compact {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            grid-template-rows: repeat(7, 1fr);
+                            gap: 8px;
+                            flex: 1;
+                            margin-top: 6px;
+                            height: 100%;
+                        }
+                        .preview-tag-card, .preview-tag-card-compact {
+                            border: 1.5px dashed #64748b;
+                            border-radius: 8px;
+                            padding: 10px 8px;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: space-between;
+                            text-align: center;
+                            background: white;
+                        }
+                        .preview-tag-card-compact p, .preview-tag-card p {
+                            line-height: 1.6 !important;
+                            padding-top: 4px !important;
+                        }
+                        .preview-tag-card-compact { gap: 4px; }
+                        svg { max-width: 100%; height: auto; }
+                        ${isPrintColor ? '' : 'body { filter: grayscale(100%) contrast(130%) !important; }'}
+                    </style>
+                </head>
+                <body>
+                    ${processedSheetsHtml}
+                </body>
+                </html>
+            `;
+
+            closePrintPreview();
+            await new Promise(r => setTimeout(r, 150));
+
+            try {
+                const api = window.electronAPI || (window.parent && window.parent.electronAPI);
+                if (api && typeof api.printTagsDirect === 'function') {
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('หมดเวลาเชื่อมต่อเครื่องพิมพ์ (Printer Timeout)')), 10000)
+                    );
+
+                    const printPromise = api.printTagsDirect({
+                        htmlContent: fullPrintHtml,
+                        isColor: isPrintColor
+                    });
+
+                    const res = await Promise.race([printPromise, timeoutPromise]);
+
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+
+                    if (!res || !res.success) {
+                        alert('การพิมพ์ขัดข้อง: ' + (res?.errorType || 'ตรวจสอบสถานะเครื่องพิมพ์'));
+                    }
+                } else {
+                    window.print();
+                    closePrintPreview();
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            } catch (err) {
+                console.error('Print Execution Error:', err);
+                closePrintPreview();
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                alert('เกิดข้อผิดพลาดในการสั่งพิมพ์: ' + err.message);
+            }
         }
 
         window.addEventListener('beforeprint', () => {
@@ -393,8 +859,44 @@
         });
 
         function openExternalBrowser() {
-            // 🌟 ดึง IP หรือ Domain ของเครื่องที่เปิดอยู่ปัจจุบันอัตโนมัติ (ไม่ล็อกตายตัวเป็น localhost)
             window.open(`${window.location.origin}/print_tags.html`, '_blank');
+        }
+
+        function smartGoBack() {
+            if (window.self !== window.top && window.parent && typeof window.parent.closePosDrawer === 'function') {
+                window.parent.closePosDrawer();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+
+        let isPrintColor = true;
+
+        function setPrintColorMode(isColor) {
+            isPrintColor = isColor;
+            const modal = document.getElementById('print-preview-modal');
+            const btnColor = document.getElementById('mode-btn-color');
+            const btnBw = document.getElementById('mode-btn-bw');
+
+            if (modal) modal.classList.toggle('print-bw', !isColor);
+
+            if (isColor) {
+                btnColor.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white shadow-2xs transition cursor-pointer';
+                btnBw.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
+            } else {
+                btnBw.className = 'px-3 py-1 rounded-lg bg-slate-900 text-white shadow-2xs transition cursor-pointer';
+                btnColor.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
+            }
+        }
+
+        function handleImageCheckboxChange() {
+            setTimeout(() => {
+                renderTags(true); 
+                const modal = document.getElementById('print-preview-modal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    handlePrintAction();
+                }
+            }, 10);
         }
     </script>
 </body>

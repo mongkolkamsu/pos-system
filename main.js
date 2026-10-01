@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, MenuItem, clipboard, shell } = require('electron');
+const { app, BrowserWindow, Menu, MenuItem, clipboard, shell, ipcMain } = require('electron');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -60,7 +60,11 @@ function stopDatabase() {
     dbProcess = null;
   }
 }
-
+function ensureClassicPrintDialog() {
+  if (process.platform === 'win32') {
+    exec('reg add "HKCU\\Software\\Microsoft\\Print\\UnifiedPrintDialog" /v "PreferLaunchClassicPrintDialog" /t REG_DWORD /d 1 /f', () => {});
+  }
+}
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1366,
@@ -69,6 +73,7 @@ function createWindow() {
     icon: path.join(__dirname, 'public', 'favicon.ico'),
     autoHideMenuBar: true,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       backgroundThrottling: false
@@ -167,6 +172,7 @@ startDatabase(() => {
   require('./server.js');
 
   const startApp = () => {
+    ensureClassicPrintDialog();
     createWindow();
     // สั่งตรวจเช็กอัปเดตเฉพาะเมื่อติดตั้งเป็นโปรแกรมจริงแล้ว (ไม่รันตอน npm start พัฒนา)
     if (app.isPackaged) {
@@ -190,4 +196,75 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopDatabase();
+});
+
+ipcMain.handle('print-tags-direct', async (event, data) => {
+  let htmlContent = '';
+  let isColorMode = true;
+
+  if (typeof data === 'object' && data !== null) {
+    htmlContent = data.htmlContent || '';
+    isColorMode = data.isColor !== undefined ? data.isColor : true;
+  } else if (typeof data === 'string') {
+    htmlContent = data;
+  }
+
+  if (typeof htmlContent !== 'string') {
+    htmlContent = String(htmlContent || '');
+  }
+
+  return new Promise((resolve) => {
+    const printWin = new BrowserWindow({
+      show: false,
+      width: 1024,
+      height: 1400,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+
+    // 🟢 สร้างไฟล์ HTML ชั่วคราว เพื่อซ่อน URL ดิบ และทำให้ชื่อในคิวพิมพ์ไม่รกตา
+    const tempFilePath = path.join(app.getPath('temp'), `pos_print_${Date.now()}.html`);
+    try {
+      fs.writeFileSync(tempFilePath, htmlContent, 'utf8');
+    } catch (err) {
+      console.error('Failed to create temp print file:', err);
+    }
+
+    printWin.loadFile(tempFilePath);
+
+    printWin.webContents.on('did-finish-load', () => {
+      setTimeout(() => {
+        printWin.webContents.print({
+          silent: true,
+          printBackground: true,
+          color: isColorMode,
+          pageSize: 'A4',
+          landscape: false,
+          margins: {
+            marginType: 'none'
+          }
+        }, (success, errorType) => {
+          // 🟢 ลบไฟล์ชั่วคราวทิ้งทันทีหลังพิมพ์เสร็จ
+          try {
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+            }
+          } catch (e) {}
+
+          setTimeout(() => {
+            if (!printWin.isDestroyed()) printWin.close();
+          }, 3000);
+
+          resolve({ success, errorType });
+        });
+      }, 300);
+    });
+  });
+});
+
+// 🟢 เพิ่ม Handler ส่งเลขเวอร์ชันของแอพไปให้หน้าเว็บ
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 });

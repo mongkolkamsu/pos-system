@@ -24,40 +24,30 @@
             line-height: 1.5;
         }
 
-        /* 🌟 ปรับขนาด Scrollbar ให้หนาและเห็นชัดเจน (Standard CSS) 🌟 */
-        * {
-            scrollbar-width: auto;
-            scrollbar-color: #94a3b8 transparent; /* Firefox: แท่งสีเทา รางโปร่งใส */
-        }
-
-        /* WebKit (Chrome, Edge, Safari) */
         ::-webkit-scrollbar {
-            width: 10px;  /* ปรับความกว้างตามต้องการ (8px - 12px) */
-            height: 10px;
+            width: 7px;
+            height: 7px;
         }
 
-        /* ซ่อนปุ่มลูกศรหัว-ท้าย */
         ::-webkit-scrollbar-button {
             display: none !important;
             width: 0 !important;
             height: 0 !important;
         }
 
-        /* รางเลื่อนโปร่งใส ไม่แสดงกรอบสี่เหลี่ยม */
         ::-webkit-scrollbar-track {
             background: transparent !important;
         }
 
-        /* ตัวแท่งเลื่อนโค้งมน */
         ::-webkit-scrollbar-thumb {
-            background-color: #94a3b8;
-            border-radius: 9999px;
-            border: none !important; /* ตัดกรอบขอบออก */
+            background-color: #cbd5e1;
+            border-radius: 9999px !important;
+            border: none !important;
             min-height: 40px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background-color: #64748b;
+            background-color: #94a3b8;
         }
 
         /* ซ่อน Scrollbar สำหรับแถบหมวดหมู่ */
@@ -91,12 +81,12 @@
             
             <!-- ฝั่งซ้าย: ปุ่มย้อนกลับ + ไอคอน + ชื่อหัวข้อ -->
             <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-                <a href="index.html" title="กลับหน้าคิดเงิน" 
-                   class="w-8 h-8 sm:w-10 sm:h-10 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl sm:rounded-2xl border border-slate-200/80 transition active:scale-90 flex items-center justify-center flex-shrink-0 shadow-2xs cursor-pointer">
+                <button type="button" onclick="smartGoBack()" title="ปิดหน้านี้" 
+                        class="w-8 h-8 sm:w-10 sm:h-10 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl sm:rounded-2xl border border-slate-200/80 transition active:scale-90 flex items-center justify-center flex-shrink-0 shadow-2xs cursor-pointer">
                     <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
                     </svg>
-                </a>
+                </button>
                 
                 <!-- ซ่อนบนมือถือเพื่อประหยัดพื้นที่ แสดงเฉพาะจอคอม sm ขึ้นไป -->
                 <div class="hidden sm:flex w-10 h-10 bg-rose-50 text-rose-600 rounded-2xl items-center justify-center border border-rose-100/80 shadow-2xs flex-shrink-0">
@@ -120,14 +110,6 @@
                     </svg>
                     <span id="print-btn-label">พิมพ์ใบสั่งของ</span>
                 </button>
-                <!-- ปุ่มไปยังหน้าพิมพ์ป้ายสินค้า -->
-                    <a href="print_tags.html" title="พิมพ์ป้ายบาร์โค้ดและราคา" 
-                    class="px-1 sm:px-3 py-1 sm:py-1.5 bg-purple-50/80 hover:bg-purple-100 text-purple-700 border border-purple-200/60 font-bold rounded-xl text-[11px] sm:text-xs transition-all active:scale-95 flex items-center justify-center gap-1 shadow-2xs whitespace-nowrap">
-                        <svg class="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                        </svg>
-                        <span>พิมพ์ป้าย</span>
-                    </a>
             </div>
         </div>
 
@@ -345,6 +327,16 @@
                 });
             } else {
                 if (modal) modal.classList.add('hidden');
+            }
+        }
+    </script>
+    <script src="js/sidebar.js"></script>
+    <script>
+        function smartGoBack() {
+            if (window.self !== window.top && window.parent && typeof window.parent.closePosDrawer === 'function') {
+                window.parent.closePosDrawer();
+            } else {
+                window.location.href = 'index.html';
             }
         }
     </script>

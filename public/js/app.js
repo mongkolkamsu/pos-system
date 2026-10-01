@@ -385,17 +385,6 @@ function setupBarcodeScanner() {
                         for (let i = 0; i < finalQty; i++) {
                             addToCart(actualBarcode);
                         }
-
-                        // เสียงเตือนปี๊บครั้งเดียวเมื่อทำรายการสำเร็จ
-                        try {
-                            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                            const osc = audioCtx.createOscillator();
-                            osc.type = 'sine';
-                            osc.frequency.value = 1000;
-                            osc.connect(audioCtx.destination);
-                            osc.start();
-                            osc.stop(audioCtx.currentTime + 0.08);
-                        } catch(e) {}
                     }
                     input.focus();
                 }
