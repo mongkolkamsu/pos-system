@@ -4,18 +4,88 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
-// ⭐️ สั่งข้ามแจ้งเตือนใบรับรอง SSL ไม่ให้จอขาว
+// ==========================================
+// 1. App Configuration & Flags
+// ==========================================
+// สั่งข้ามแจ้งเตือนใบรับรอง SSL ไม่ให้จอขาว[cite: 29]
 app.commandLine.appendSwitch('ignore-certificate-errors');
 
-// ⭐️ ปลดล็อกให้เล่นเสียงแจ้งเตือนอัตโนมัติได้ทันทีเมื่อ Webhook ยิงเข้า
+// ปลดล็อกให้เล่นเสียงแจ้งเตือนอัตโนมัติเมื่อมี Webhook ยิงเข้า[cite: 29]
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let dbProcess = null;
 let mainWindow = null;
-let splashWindow = null; // 🟢 ตัวแปรสำหรับหน้าต่างโหลด (Splash Screen)
+let splashWindow = null;
 
-// 🟢 ฟังก์ชันสร้างหน้าต่างโหลดให้เด้งขึ้นมากลางจอทันที
-// 🟢 ฟังก์ชันสร้างหน้าต่างโหลด (ใช้ไอคอน favicon.ico จริง)
+// ==========================================
+// 2. Database Management (MariaDB)
+// ==========================================
+function startDatabase(callback) {
+  const basePath = app.isPackaged ? process.resourcesPath : __dirname;
+  const dbExe = path.join(basePath, 'db-engine', 'bin', 'mariadbd.exe');
+  const dbIni = path.join(basePath, 'db-engine', 'my.ini');
+
+  const rootDir = 'C:/POS_System';
+  const liveDataDir = 'C:/POS_System/data';
+  const liveImgDir = 'C:/POS_System/images';
+
+  const defaultDataDir = path.join(basePath, 'db-engine', 'data');
+  const defaultImgDir = app.isPackaged
+    ? path.join(basePath, 'default-images')
+    : path.join(__dirname, 'public', 'images');
+
+  try {
+    if (!fs.existsSync(rootDir)) {
+      fs.mkdirSync(rootDir, { recursive: true });
+    }
+    if (!fs.existsSync(liveDataDir)) {
+      fs.mkdirSync(liveDataDir, { recursive: true });
+      if (fs.existsSync(defaultDataDir)) {
+        fs.cpSync(defaultDataDir, liveDataDir, { recursive: true });
+      }
+    }
+    if (!fs.existsSync(liveImgDir) || fs.readdirSync(liveImgDir).length === 0) {
+      fs.mkdirSync(liveImgDir, { recursive: true });
+      if (fs.existsSync(defaultImgDir)) {
+        fs.cpSync(defaultImgDir, liveImgDir, { recursive: true });
+      }
+    }
+  } catch (err) {
+    console.error('เกิดข้อผิดพลาดในการเตรียมโฟลเดอร์ C:\\POS_System:', err);
+  }
+
+  dbProcess = spawn(dbExe, [
+    `--defaults-file=${dbIni}`,
+    `--datadir=${liveDataDir}`,
+    '--console'
+  ], {
+    windowsHide: true,
+    cwd: basePath
+  });
+
+  dbProcess.on('error', (err) => {
+    console.error('ไม่สามารถเปิดฐานข้อมูลได้:', err);
+  });
+
+  setTimeout(callback, 3000);
+}
+
+function stopDatabase() {
+  if (dbProcess) {
+    exec(`taskkill /pid ${dbProcess.pid} /f /t`, () => {});
+    dbProcess = null;
+  }
+}
+
+function ensureClassicPrintDialog() {
+  if (process.platform === 'win32') {
+    exec('reg add "HKCU\\Software\\Microsoft\\Print\\UnifiedPrintDialog" /v "PreferLaunchClassicPrintDialog" /t REG_DWORD /d 1 /f', () => {});
+  }
+}
+
+// ==========================================
+// 3. Splash Screen Window
+// ==========================================
 function createSplashScreen() {
   splashWindow = new BrowserWindow({
     width: 380,
@@ -29,7 +99,6 @@ function createSplashScreen() {
     icon: path.join(__dirname, 'public', 'favicon.ico')
   });
 
-  // แปลงไฟล์ favicon.ico เป็น base64 เพื่อให้โหลดขึ้นหน้าต่างได้ทันที 100%
   const iconPath = path.join(__dirname, 'public', 'favicon.ico');
   let iconBase64 = '';
   try {
@@ -125,78 +194,14 @@ function createSplashScreen() {
   splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHTML)}`);
 }
 
-// 1. สั่งเปิด MariaDB และจัดการโฟลเดอร์ C:\POS_System ทั้งหมด
-function startDatabase(callback) {
-  const basePath = app.isPackaged ? process.resourcesPath : __dirname;
-  const dbExe = path.join(basePath, 'db-engine', 'bin', 'mariadbd.exe');
-  const dbIni = path.join(basePath, 'db-engine', 'my.ini');
-  
-  const rootDir = 'C:/POS_System';
-  const liveDataDir = 'C:/POS_System/data';
-  const liveImgDir = 'C:/POS_System/images';
-
-  const defaultDataDir = path.join(basePath, 'db-engine', 'data');
-  const defaultImgDir = app.isPackaged 
-    ? path.join(basePath, 'default-images') 
-    : path.join(__dirname, 'public', 'images');
-
-  try {
-    if (!fs.existsSync(rootDir)) {
-      fs.mkdirSync(rootDir, { recursive: true });
-    }
-
-    if (!fs.existsSync(liveDataDir)) {
-      fs.mkdirSync(liveDataDir, { recursive: true });
-      if (fs.existsSync(defaultDataDir)) {
-        fs.cpSync(defaultDataDir, liveDataDir, { recursive: true });
-      }
-    }
-
-    if (!fs.existsSync(liveImgDir) || fs.readdirSync(liveImgDir).length === 0) {
-      fs.mkdirSync(liveImgDir, { recursive: true });
-      if (fs.existsSync(defaultImgDir)) {
-        fs.cpSync(defaultImgDir, liveImgDir, { recursive: true });
-      }
-    }
-  } catch (err) {
-    console.error('เกิดข้อผิดพลาดในการเตรียมโฟลเดอร์ C:\\POS_System:', err);
-  }
-
-  dbProcess = spawn(dbExe, [
-    `--defaults-file=${dbIni}`,
-    `--datadir=${liveDataDir}`,
-    '--console'
-  ], {
-    windowsHide: true,
-    cwd: basePath
-  });
-
-  dbProcess.on('error', (err) => {
-    console.error('ไม่สามารถเปิดฐานข้อมูลได้:', err);
-  });
-
-  setTimeout(callback, 3000);
-}
-
-// 2. สั่งปิด MariaDB ให้สมบูรณ์เมื่อปิดแอป
-function stopDatabase() {
-  if (dbProcess) {
-    exec(`taskkill /pid ${dbProcess.pid} /f /t`, () => {});
-    dbProcess = null;
-  }
-}
-
-function ensureClassicPrintDialog() {
-  if (process.platform === 'win32') {
-    exec('reg add "HKCU\\Software\\Microsoft\\Print\\UnifiedPrintDialog" /v "PreferLaunchClassicPrintDialog" /t REG_DWORD /d 1 /f', () => {});
-  }
-}
-
+// ==========================================
+// 4. Main Window & UI Setup
+// ==========================================
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 768,
-    show: false, // 🟢 ซ่อนหน้าต่างหลักไว้ก่อนจนกว่าจะโหลดหน้าเว็บเสร็จ
+    show: false,
     title: "POS System",
     icon: path.join(__dirname, 'public', 'favicon.ico'),
     autoHideMenuBar: true,
@@ -208,7 +213,6 @@ function createWindow() {
     }
   });
 
-  // 🟢 เมื่อหน้าเว็บโหลดพร้อมแสดงผล: สั่งปิด Splash Screen แล้วแสดงหน้าต่างหลักทันที
   mainWindow.once('ready-to-show', () => {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.close();
@@ -223,6 +227,7 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  // คีย์ลัดสำหรับการรีเฟรชและเครื่องมือ DevTools[cite: 29]
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.control && input.shift && input.key.toLowerCase() === 'r') {
       mainWindow.webContents.reloadIgnoringCache();
@@ -236,6 +241,7 @@ function createWindow() {
     }
   });
 
+  // เมนูคลิกขวา (Context Menu)[cite: 29]
   mainWindow.webContents.on('context-menu', (event, params) => {
     const menu = new Menu();
     const hasCopiedImage = !clipboard.readImage().isEmpty();
@@ -292,86 +298,79 @@ function createWindow() {
   mainWindow.loadURL('https://localhost:3000');
 }
 
-// 🟢 ตั้งค่าระบบ Auto-Update
-autoUpdater.autoDownload = true;
+// ==========================================
+// 5. Auto-Updater Engine (Silent & Progress)
+// ==========================================
+autoUpdater.autoDownload = false; // ปิดการดาวน์โหลดอัตโนมัติ เพื่อให้ผู้ใช้กดเริ่มโหลดผ่าน UI[cite: 29]
 
-autoUpdater.on('update-available', (info) => {
-  let notes = '';
-  if (info.releaseNotes) {
-    if (typeof info.releaseNotes === 'string') {
-      notes = info.releaseNotes;
-    } else if (Array.isArray(info.releaseNotes)) {
-      notes = info.releaseNotes.map(n => n.note).join('\n');
-    }
-    // ล้างแท็ก HTML ออกเพื่อให้แสดงผลใน Popup ได้สวยงาม
-    notes = notes.replace(/<[^>]*>?/gm, '').trim();
-  }
-
-  // ส่งข้อมูลเวอร์ชันใหม่และรายการอัปเดตไปให้หน้าเว็บแสดงผลที่ Sidebar
+autoUpdater.on('download-progress', (progressObj) => {
   if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.send('update-available-to-ui', {
-      version: info.version,
-      notes: notes || 'ปรับปรุงประสิทธิภาพการทำงานของระบบ'
+    mainWindow.webContents.send('update-download-progress', {
+      percent: Math.round(progressObj.percent),
+      transferredMB: (progressObj.transferred / (1024 * 1024)).toFixed(1),
+      totalMB: (progressObj.total / (1024 * 1024)).toFixed(1)
     });
   }
-
-  dialog.showMessageBox({
-    type: 'info',
-    title: '🎉 พบอัปเดตใหม่ v' + info.version,
-    message: `ระบบพบเวอร์ชันใหม่ (v${info.version})\n\nรายการอัปเดต:\n${notes || '- ปรับปรุงประสิทธิภาพและแก้ไขข้อผิดพลาด'}\n\nระบบกำลังดาวน์โหลดเบื้องหลัง กรุณารอสักครู่...`,
-    buttons: ['รับทราบ']
-  });
 });
 
-autoUpdater.on('update-not-available', () => {
-  console.log('แอปเป็นเวอร์ชันล่าสุดแล้ว');
+autoUpdater.on('update-downloaded', () => {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('update-downloaded-to-ui');
+  }
 });
 
 autoUpdater.on('error', (err) => {
   console.error('Update Error:', err);
-  dialog.showErrorBox('การอัปเดตล้มเหลว', err == null ? 'ไม่ทราบสาเหตุ' : (err.message || String(err)));
-});
-
-autoUpdater.on('update-downloaded', () => {
-  // 🟢 ส่งสัญญาณบอกหน้าต่าง Sidebar ว่าดาวน์โหลดตัวติดตั้งเสร็จแล้ว
   if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.send('update-downloaded-to-ui');
+    mainWindow.webContents.send('update-error-to-ui', err == null ? 'ไม่ทราบสาเหตุ' : (err.message || String(err)));
   }
-
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'ดาวน์โหลดเสร็จสมบูรณ์',
-    message: 'ดาวน์โหลดเวอร์ชันใหม่เสร็จสิ้นแล้ว แอปจะปิดและเปิดเวอร์ชันใหม่ทันที',
-    buttons: ['อัปเดตเลย']
-  }).then(() => {
-    autoUpdater.quitAndInstall(false, true);
-  });
 });
 
-// 🟢 ลำดับการทำงานใหม่: เปิดหน้าต่างโหลดทันที -> สตาร์ต MariaDB -> โหลด server.js -> สลับไปหน้าจอหลัก
-app.whenReady().then(() => {
-  createSplashScreen(); // เด้งขึ้นมากลางจอทันทีใน 0.2 วินาที!
+// ==========================================
+// 6. IPC Handlers
+// ==========================================
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
 
-  startDatabase(() => {
-    require('./server.js');
-    ensureClassicPrintDialog();
-    createWindow();
+ipcMain.handle('check-for-updates-manual', async () => {
+  if (!app.isPackaged) {
+    return { success: false, message: 'อยู่ในโหมดพัฒนา (npm start)' };
+  }
 
-    if (app.isPackaged) {
-      autoUpdater.checkForUpdatesAndNotify();
+  try {
+    const res = await autoUpdater.checkForUpdates();
+    const updateInfo = res?.updateInfo;
+    const currentVersion = app.getVersion();
+    const hasUpdate = updateInfo && updateInfo.version !== currentVersion;
+
+    let notes = '';
+    if (updateInfo?.releaseNotes) {
+      notes = typeof updateInfo.releaseNotes === 'string'
+        ? updateInfo.releaseNotes
+        : updateInfo.releaseNotes.map(n => n.note).join('\n');
+      notes = notes.replace(/<[^>]*>?/gm, '').trim();
     }
-  });
-});
 
-app.on('window-all-closed', () => {
-  stopDatabase();
-  if (process.platform !== 'darwin') {
-    app.quit();
+    return {
+      success: true,
+      hasUpdate: Boolean(hasUpdate),
+      version: updateInfo?.version,
+      notes: notes || 'ปรับปรุงประสิทธิภาพการทำงานของระบบ'
+    };
+  } catch (err) {
+    return { success: false, message: err.message };
   }
 });
 
-app.on('before-quit', () => {
-  stopDatabase();
+ipcMain.handle('start-download-update', () => {
+  autoUpdater.downloadUpdate();
+  return { success: true };
+});
+
+ipcMain.handle('restart-and-install-update', () => {
+  // Silent install = true (ซ่อนหน้าต่าง setup หลอดเขียว), isForceRunAfter = true (เปิดแอปใหม่ทันที)[cite: 29]
+  autoUpdater.quitAndInstall(true, true);
 });
 
 ipcMain.handle('print-tags-direct', async (event, data) => {
@@ -438,23 +437,64 @@ ipcMain.handle('print-tags-direct', async (event, data) => {
   });
 });
 
-ipcMain.handle('get-app-version', () => {
-  return app.getVersion();
-});
-// 🟢 รับคำสั่งกดปุ่มรีสตาร์ทเพื่อติดตั้งอัปเดตทันทีจากหน้าต่าง
-ipcMain.handle('restart-and-install-update', () => {
-  autoUpdater.quitAndInstall(false, true);
+// ==========================================
+// 7. Application Lifecycle
+// ==========================================
+app.whenReady().then(() => {
+  createSplashScreen();
+
+  startDatabase(() => {
+    require('./server.js');
+    ensureClassicPrintDialog();
+    createWindow();
+  });
 });
 
-// 🟢 รับคำสั่งกดปุ่มตรวจเช็กอัปเดตด้วยมือ
-ipcMain.handle('check-for-updates-manual', async () => {
-  if (app.isPackaged) {
-    try {
-      const res = await autoUpdater.checkForUpdates();
-      return { success: true, version: res?.updateInfo?.version };
-    } catch (err) {
-      return { success: false, message: err.message };
-    }
+app.on('window-all-closed', () => {
+  stopDatabase();
+  if (process.platform !== 'darwin') {
+    app.quit();
   }
-  return { success: false, message: 'อยู่ในโหมดพัฒนา (npm start)' };
+});
+
+app.on('before-quit', () => {
+  stopDatabase();
+});
+
+// 🟢 ดึงข้อมูล Release Notes ของเวอร์ชันปัจจุบันจาก GitHub API อัตโนมัติ
+ipcMain.handle('get-current-release-notes', async () => {
+  try {
+    const currentVer = app.getVersion();
+    
+    // ดึงชื่อ repo และ owner จาก package.json
+    const pkgPath = path.join(__dirname, 'package.json');
+    let owner = 'mongkolkamsu';
+    let repo = 'pos-system';
+    
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      owner = pkg.build?.publish?.owner || owner;
+      repo = pkg.build?.publish?.repo || pkg.name || repo;
+    }
+
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/tags/v${currentVer}`;
+    const res = await fetch(apiUrl, {
+      headers: {
+        'User-Agent': 'POS-System-App',
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!res.ok) {
+      return { success: false, message: 'ไม่พบ Release Notes บน GitHub' };
+    }
+
+    const data = await res.json();
+    return {
+      success: true,
+      notes: data.body || 'ไม่มีรายละเอียดการอัปเดต'
+    };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
 });

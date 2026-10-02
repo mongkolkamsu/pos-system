@@ -306,103 +306,132 @@ initPosSidebar = function() {
 };
 
 // ==========================================
-// 🚀 ระบบจัดการการแสดงรายการอัปเดต (Changelog)
+// 🚀 ระบบจัดการการแสดงรายการอัปเดต (Changelog & Live Progress)
 // ==========================================
-let latestUpdateInfo = null;
-let isUpdateReadyToInstall = false;
+let updateState = 'IDLE'; // 'IDLE' | 'AVAILABLE' | 'DOWNLOADING' | 'READY'
+let pendingUpdateInfo = null;
 
-// ดักฟังว่ามีเวอร์ชันใหม่
-if (window.electronAPI && window.electronAPI.onUpdateAvailable) {
-    window.electronAPI.onUpdateAvailable((data) => {
-        latestUpdateInfo = data;
-        const dot = document.getElementById('update-badge-dot');
-        const badge = document.getElementById('update-badge-text');
-        if (dot) dot.classList.remove('hidden');
-        if (badge) badge.classList.remove('hidden');
+// 1. รับค่าเปอร์เซ็นต์แบบเรียลไทม์
+if (window.electronAPI && window.electronAPI.onUpdateProgress) {
+    window.electronAPI.onUpdateProgress((data) => {
+        updateState = 'DOWNLOADING';
+        const bar = document.getElementById('modal-progress-bar');
+        const percentText = document.getElementById('modal-progress-percent');
+        const bytesText = document.getElementById('modal-progress-bytes');
+
+        if (bar) bar.style.width = `${data.percent}%`;
+        if (percentText) percentText.innerText = `${data.percent}%`;
+        if (bytesText) bytesText.innerText = `${data.transferredMB} MB / ${data.totalMB} MB`;
     });
 }
 
-// ดักฟังว่าดาวน์โหลดไฟล์ตัวใหม่เสร็จเรียบร้อยแล้ว
+// 2. เมื่อดาวน์โหลดเสร็จ 100%
 if (window.electronAPI && window.electronAPI.onUpdateDownloaded) {
     window.electronAPI.onUpdateDownloaded(() => {
-        isUpdateReadyToInstall = true;
-        const badge = document.getElementById('update-badge-text');
-        if (badge) {
-            badge.innerText = 'พร้อมลง!';
-            badge.className = 'text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-200 animate-bounce';
-        }
+        updateState = 'READY';
+        renderModalState();
+
+        // นับถอยหลัง 2 วินาทีแล้วสั่งรีสตาร์ทเปิดแอปใหม่เองอัตโนมัติ
+        setTimeout(() => {
+            if (window.electronAPI.restartAndInstallUpdate) {
+                window.electronAPI.restartAndInstallUpdate();
+            }
+        }, 2000);
     });
 }
 
+// 3. จัดการเปิด Modal
 function showChangelogModal() {
     const modal = document.getElementById('pos-changelog-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    renderModalState();
+}
+// ฟังก์ชันแปลง Markdown จาก GitHub ให้กลายเป็น HTML สวยงามสไตล์ iOS
+function formatMarkdownToHtml(md) {
+    if (!md) return '';
+    return md
+        .replace(/^### (.*$)/gim, '<div class="font-bold text-slate-800 text-xs mt-2 mb-1">$1</div>')
+        .replace(/^## (.*$)/gim, '<div class="font-bold text-slate-800 text-sm mt-2 mb-1">$1</div>')
+        .replace(/^# (.*$)/gim, '<div class="font-extrabold text-slate-900 text-sm mt-2 mb-1">$1</div>')
+        .replace(/\*\*(.*?)\*\*/gim, '<strong class="text-slate-800 font-semibold">$1</strong>')
+        .replace(/^\s*[\*\-]\s+(.*$)/gim, '<div class="flex items-start gap-1.5 pl-1 text-slate-600"><span>•</span><span>$1</span></div>')
+        .replace(/\n$/gim, '')
+        .replace(/\n/gim, '<div class="h-1"></div>');
+}
+// 4. วาดหน้าต่างตามสถานะปัจจุบัน
+function renderModalState() {
     const content = document.getElementById('modal-changelog-content');
     const tag = document.getElementById('modal-version-tag');
     const actions = document.getElementById('modal-changelog-actions');
-    if (!modal) return;
+    const curVer = document.getElementById('app-version-label')?.innerText || '';
 
-    if (isUpdateReadyToInstall) {
-        // 🟢 กรณีดาวน์โหลดพร้อมติดตั้งแล้ว
-        tag.innerText = `ดาวน์โหลด v${latestUpdateInfo?.version || ''} เสร็จแล้ว`;
+    if (!content || !actions || !tag) return;
+
+    if (updateState === 'READY') {
+        // สถานะ: โหลดเสร็จ กำลังรีสตาร์ท
+        tag.innerText = `ดาวน์โหลดเสร็จแล้ว`;
         content.innerHTML = `
-            <div class="p-3 bg-blue-50/80 rounded-2xl border border-blue-100 text-blue-700 font-semibold mb-2.5 text-[11px] flex items-center gap-2">
-                <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                <span>ดาวน์โหลดเรียบร้อยแล้ว กดติดตั้งเพื่อเริ่มใช้งาน</span>
+            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                <span>ดาวน์โหลดครบ 100% กำลังรีสตาร์ทเข้าแอปใหม่...</span>
             </div>
-            <div class="whitespace-pre-line leading-relaxed font-medium text-slate-600">
-                ${latestUpdateInfo?.notes || 'ปรับปรุงประสิทธิภาพการทำงานของระบบ'}
+        `;
+        actions.innerHTML = `
+            <button type="button" onclick="window.electronAPI.restartAndInstallUpdate()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl shadow-md shadow-blue-500/25 active:scale-95 transition-all cursor-pointer">
+                รีสตาร์ททันที
+            </button>
+        `;
+    } else if (updateState === 'DOWNLOADING') {
+        // สถานะ: หลอดโหลดกำลังวิ่ง
+        tag.innerText = `กำลังดาวน์โหลด v${pendingUpdateInfo?.version || ''}`;
+        content.innerHTML = `
+            <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                        กำลังดาวน์โหลดไฟล์...
+                    </span>
+                    <span id="modal-progress-percent" class="text-blue-600">0%</span>
+                </div>
+                <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div id="modal-progress-bar" style="width: 0%;" class="h-full bg-blue-600 rounded-full transition-all duration-150"></div>
+                </div>
+                <div class="flex justify-end text-[10px] text-slate-400 font-semibold" id="modal-progress-bytes">
+                    0 MB / -- MB
+                </div>
+            </div>
+        `;
+        actions.innerHTML = `
+            <button type="button" onclick="closeChangelogModal()" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl active:scale-95 transition-all cursor-pointer">
+                ซ่อนหน้าต่าง (ดาวน์โหลดเบื้องหลัง)
+            </button>
+        `;
+    } else if (updateState === 'AVAILABLE') {
+        // สถานะ: พบเวอร์ชันใหม่ มีปุ่มให้เริ่มอัปเดต
+        tag.innerText = `พบเวอร์ชันใหม่ v${pendingUpdateInfo.version}`;
+        content.innerHTML = `
+            <div class="p-3 bg-blue-50 rounded-2xl border border-blue-100 text-blue-700 font-semibold mb-2 text-xs">
+                🎉 มีเวอร์ชันใหม่พร้อมใช้งาน
+            </div>
+            <div class="whitespace-pre-line text-xs font-medium text-slate-600 leading-relaxed max-h-40 overflow-y-auto">
+                ${pendingUpdateInfo.notes}
             </div>
         `;
         actions.innerHTML = `
             <button type="button" onclick="closeChangelogModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl active:scale-95 transition-all cursor-pointer">
                 ไว้ทีหลัง
             </button>
-            <button type="button" onclick="window.electronAPI.restartAndInstallUpdate()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl shadow-md shadow-blue-500/25 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                <span>อัปเดตทันที</span>
-            </button>
-        `;
-    } else if (latestUpdateInfo) {
-        // 🟢 กรณีพบเวอร์ชันใหม่ กำลังดาวน์โหลด
-        tag.innerText = `มีเวอร์ชันใหม่: v${latestUpdateInfo.version}`;
-        content.innerHTML = `
-            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 font-semibold mb-2 text-[11px] flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping flex-shrink-0"></span>
-                <span>ระบบกำลังดาวน์โหลดเวอร์ชันใหม่เบื้องหลัง...</span>
-            </div>
-            <div class="whitespace-pre-line leading-relaxed font-medium text-slate-600">
-                ${latestUpdateInfo.notes}
-            </div>
-        `;
-        actions.innerHTML = `
-            <button type="button" onclick="closeChangelogModal()" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl active:scale-98 transition-all cursor-pointer">
-                เข้าใจแล้ว
+            <button type="button" onclick="handleStartDownload()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl shadow-md shadow-blue-500/25 active:scale-95 transition-all cursor-pointer">
+                อัปเดตตอนนี้
             </button>
         `;
     } else {
-        // 🟢 กรณีเป็นเวอร์ชันปัจจุบัน (ใช้ iOS Style Checkmark Badge)
-        const curVer = document.getElementById('app-version-label')?.innerText || 'v1.0.5';
+        // สถานะ: ปกติ (เวอร์ชันปัจจุบัน) - ดึงข้อความจาก GitHub Release
         tag.innerText = `เวอร์ชันปัจจุบัน (${curVer})`;
         content.innerHTML = `
-            <div class="space-y-2.5 font-medium leading-relaxed">
-                <div class="flex items-start gap-2.5 text-slate-600">
-                    <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
-                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                    </span>
-                    <span class="text-slate-700">ปรับปรุงการกดค้างเพื่อลากเลือกช่วงวันในปฏิทิน</span>
-                </div>
-                <div class="flex items-start gap-2.5 text-slate-600">
-                    <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
-                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                    </span>
-                    <span class="text-slate-700">เพิ่มหน้าต่าง Splash Screen เปิดแอปทันทีพร้อมไอคอน</span>
-                </div>
-                <div class="flex items-start gap-2.5 text-slate-600">
-                    <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
-                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                    </span>
-                    <span class="text-slate-700">รวมศูนย์ระบบฐานข้อมูลและไฟล์สำรองไว้ที่ C:\\POS_System</span>
-                </div>
+            <div id="github-release-content" class="text-xs text-slate-500 py-4 text-center">
+                กำลังโหลดรายละเอียดจาก GitHub...
             </div>
         `;
         actions.innerHTML = `
@@ -414,17 +443,31 @@ function showChangelogModal() {
                 เข้าใจแล้ว
             </button>
         `;
-    }
 
-    modal.classList.remove('hidden');
+        // 🟢 สั่งดึง Release Notes จาก GitHub ทันทีที่เปิดหน้าต่าง
+        if (window.electronAPI && window.electronAPI.getCurrentReleaseNotes) {
+            window.electronAPI.getCurrentReleaseNotes().then(res => {
+                const box = document.getElementById('github-release-content');
+                if (!box) return;
+                
+                if (res.success && res.notes) {
+                    box.className = "text-xs text-slate-600 leading-relaxed text-left space-y-1 pr-1";
+                    box.innerHTML = formatMarkdownToHtml(res.notes);
+                } else {
+                    box.className = "text-xs text-slate-400 py-3 text-center";
+                    box.innerText = "ไม่สามารถเชื่อมต่อเพื่อดึงรายการอัปเดตจาก GitHub ได้";
+                }
+            }).catch(() => {
+                const box = document.getElementById('github-release-content');
+                if (box) box.innerText = "เกิดข้อผิดพลาดในการโหลดข้อมูล";
+            });
+        }
+    }
 }
 
+// 5. กดปุ่ม "ตรวจหาอัปเดต"
 async function handleManualCheckUpdate(btn) {
-    if (!window.electronAPI || !window.electronAPI.checkForUpdatesManual) {
-        alert('กรุณาปิดโปรแกรมแล้วเปิดใหม่ เพื่อให้ระบบโหลดคำสั่งตรวจสอบล่าสุด');
-        return;
-    }
-
+    if (!window.electronAPI || !window.electronAPI.checkForUpdatesManual) return;
     const oldHTML = btn.innerHTML;
     btn.innerHTML = `
         <svg class="w-3.5 h-3.5 text-slate-500 animate-spin" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
@@ -436,16 +479,28 @@ async function handleManualCheckUpdate(btn) {
         const res = await window.electronAPI.checkForUpdatesManual();
         if (!res.success) {
             alert(res.message || 'ไม่สามารถตรวจสอบได้ในขณะนี้');
+        } else if (res.hasUpdate) {
+            updateState = 'AVAILABLE';
+            pendingUpdateInfo = res;
+            renderModalState();
         } else {
-            // เมื่อเป็นเวอร์ชันล่าสุดเรียบร้อย
             const curVer = document.getElementById('app-version-label')?.innerText || '';
             alert(`ระบบของคุณเป็นเวอร์ชันล่าสุดแล้ว (${curVer})`);
         }
     } catch (e) {
-        alert('เกิดข้อผิดพลาด: ' + (e.message || e));
+        alert('เกิดข้อผิดพลาดในการตรวจสอบ: ' + (e.message || e));
     } finally {
         btn.disabled = false;
         btn.innerHTML = oldHTML;
+    }
+}
+
+// 6. กดปุ่ม "อัปเดตตอนนี้"
+function handleStartDownload() {
+    updateState = 'DOWNLOADING';
+    renderModalState();
+    if (window.electronAPI && window.electronAPI.startDownloadUpdate) {
+        window.electronAPI.startDownloadUpdate();
     }
 }
 
