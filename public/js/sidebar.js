@@ -102,7 +102,15 @@ function initPosSidebar() {
                         <div class="w-6 h-3.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[#34C759] transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-2.5 shadow-inner"></div>                    
                     </label>
                 </div>
-                <span id="app-version-label" class="text-[10px] text-slate-400 font-semibold tracking-tight mt-0.5 select-none">v...</span>
+                <button type="button" onclick="showChangelogModal()" title="คลิกเพื่อดูรายการอัปเดต" 
+                        class="flex flex-col items-center gap-0.5 mt-1 group cursor-pointer outline-none">
+                    <div class="flex items-center gap-1">
+                        <!-- ไฟเขียวกระพริบ (จะโชว์เมื่อมีอัปเดตใหม่) -->
+                        <span id="update-badge-dot" class="hidden w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="app-version-label" class="text-[10px] text-slate-400 group-hover:text-blue-600 font-bold tracking-tight transition-colors">v...</span>
+                    </div>
+                    <span id="update-badge-text" class="hidden text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">มีอัปเดต!</span>
+                </button>
             </div>
         </aside>
 
@@ -137,10 +145,37 @@ function initPosSidebar() {
                     </button>
                 </div>
             </div>
-
+            
             <!-- เฟรมแสดงหน้าเว็บ -->
             <div class="flex-1 w-full h-full bg-slate-50/50 relative">
                 <iframe id="pos-drawer-frame" src="" class="w-full h-full border-none"></iframe>
+            </div>
+        </div>
+        <!-- 4. หน้าต่าง Modal รายการอัปเดต -->
+        <div id="pos-changelog-modal" class="fixed inset-0 z-[999999] hidden flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs select-none" onclick="closeChangelogModal()">
+            <div class="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div class="flex items-center gap-2.5">
+                        <!-- 🟢 เปลี่ยนกลับเป็นไอคอนลูกศรหมุนวนสีฟ้าตามเดิม -->
+                        <div class="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 border border-blue-100/70 shadow-2xs">
+                            <svg class="w-4.2 h-4.2" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-extrabold text-sm text-slate-800">รายการอัปเดตระบบ</h3>
+                            <p id="modal-version-tag" class="text-[11px] text-slate-400 font-semibold">เวอร์ชันปัจจุบัน</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeChangelogModal()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 active:scale-95 text-xs font-bold cursor-pointer">✕</button>
+                </div>
+
+                <div class="py-4 space-y-2 max-h-60 overflow-y-auto text-xs text-slate-600" id="modal-changelog-content">
+                    <!-- รายการข้อความอัปเดตจะแทรกตรงนี้ -->
+                </div>
+
+                <!-- 🟢 เติมแท็กปิด </div> ครบถ้วน ไม่หลุดบล็อก -->
+                <div id="modal-changelog-actions" class="pt-1 flex gap-2"></div>
             </div>
         </div>
     `;
@@ -269,4 +304,153 @@ initPosSidebar = function() {
     prevInitPosSidebar();
     updateAppVersionBadge();
 };
+
+// ==========================================
+// 🚀 ระบบจัดการการแสดงรายการอัปเดต (Changelog)
+// ==========================================
+let latestUpdateInfo = null;
+let isUpdateReadyToInstall = false;
+
+// ดักฟังว่ามีเวอร์ชันใหม่
+if (window.electronAPI && window.electronAPI.onUpdateAvailable) {
+    window.electronAPI.onUpdateAvailable((data) => {
+        latestUpdateInfo = data;
+        const dot = document.getElementById('update-badge-dot');
+        const badge = document.getElementById('update-badge-text');
+        if (dot) dot.classList.remove('hidden');
+        if (badge) badge.classList.remove('hidden');
+    });
+}
+
+// ดักฟังว่าดาวน์โหลดไฟล์ตัวใหม่เสร็จเรียบร้อยแล้ว
+if (window.electronAPI && window.electronAPI.onUpdateDownloaded) {
+    window.electronAPI.onUpdateDownloaded(() => {
+        isUpdateReadyToInstall = true;
+        const badge = document.getElementById('update-badge-text');
+        if (badge) {
+            badge.innerText = 'พร้อมลง!';
+            badge.className = 'text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-200 animate-bounce';
+        }
+    });
+}
+
+function showChangelogModal() {
+    const modal = document.getElementById('pos-changelog-modal');
+    const content = document.getElementById('modal-changelog-content');
+    const tag = document.getElementById('modal-version-tag');
+    const actions = document.getElementById('modal-changelog-actions');
+    if (!modal) return;
+
+    if (isUpdateReadyToInstall) {
+        // 🟢 กรณีดาวน์โหลดพร้อมติดตั้งแล้ว
+        tag.innerText = `ดาวน์โหลด v${latestUpdateInfo?.version || ''} เสร็จแล้ว`;
+        content.innerHTML = `
+            <div class="p-3 bg-blue-50/80 rounded-2xl border border-blue-100 text-blue-700 font-semibold mb-2.5 text-[11px] flex items-center gap-2">
+                <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                <span>ดาวน์โหลดเรียบร้อยแล้ว กดติดตั้งเพื่อเริ่มใช้งาน</span>
+            </div>
+            <div class="whitespace-pre-line leading-relaxed font-medium text-slate-600">
+                ${latestUpdateInfo?.notes || 'ปรับปรุงประสิทธิภาพการทำงานของระบบ'}
+            </div>
+        `;
+        actions.innerHTML = `
+            <button type="button" onclick="closeChangelogModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl active:scale-95 transition-all cursor-pointer">
+                ไว้ทีหลัง
+            </button>
+            <button type="button" onclick="window.electronAPI.restartAndInstallUpdate()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl shadow-md shadow-blue-500/25 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                <span>อัปเดตทันที</span>
+            </button>
+        `;
+    } else if (latestUpdateInfo) {
+        // 🟢 กรณีพบเวอร์ชันใหม่ กำลังดาวน์โหลด
+        tag.innerText = `มีเวอร์ชันใหม่: v${latestUpdateInfo.version}`;
+        content.innerHTML = `
+            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 font-semibold mb-2 text-[11px] flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping flex-shrink-0"></span>
+                <span>ระบบกำลังดาวน์โหลดเวอร์ชันใหม่เบื้องหลัง...</span>
+            </div>
+            <div class="whitespace-pre-line leading-relaxed font-medium text-slate-600">
+                ${latestUpdateInfo.notes}
+            </div>
+        `;
+        actions.innerHTML = `
+            <button type="button" onclick="closeChangelogModal()" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl active:scale-98 transition-all cursor-pointer">
+                เข้าใจแล้ว
+            </button>
+        `;
+    } else {
+        // 🟢 กรณีเป็นเวอร์ชันปัจจุบัน (ใช้ iOS Style Checkmark Badge)
+        const curVer = document.getElementById('app-version-label')?.innerText || 'v1.0.5';
+        tag.innerText = `เวอร์ชันปัจจุบัน (${curVer})`;
+        content.innerHTML = `
+            <div class="space-y-2.5 font-medium leading-relaxed">
+                <div class="flex items-start gap-2.5 text-slate-600">
+                    <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                    </span>
+                    <span class="text-slate-700">ปรับปรุงการกดค้างเพื่อลากเลือกช่วงวันในปฏิทิน</span>
+                </div>
+                <div class="flex items-start gap-2.5 text-slate-600">
+                    <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                    </span>
+                    <span class="text-slate-700">เพิ่มหน้าต่าง Splash Screen เปิดแอปทันทีพร้อมไอคอน</span>
+                </div>
+                <div class="flex items-start gap-2.5 text-slate-600">
+                    <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                    </span>
+                    <span class="text-slate-700">รวมศูนย์ระบบฐานข้อมูลและไฟล์สำรองไว้ที่ C:\\POS_System</span>
+                </div>
+            </div>
+        `;
+        actions.innerHTML = `
+            <button type="button" onclick="handleManualCheckUpdate(this)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+                <span>ตรวจหาอัปเดต</span>
+            </button>
+            <button type="button" onclick="closeChangelogModal()" class="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl active:scale-95 transition-all cursor-pointer">
+                เข้าใจแล้ว
+            </button>
+        `;
+    }
+
+    modal.classList.remove('hidden');
+}
+
+async function handleManualCheckUpdate(btn) {
+    if (!window.electronAPI || !window.electronAPI.checkForUpdatesManual) {
+        alert('กรุณาปิดโปรแกรมแล้วเปิดใหม่ เพื่อให้ระบบโหลดคำสั่งตรวจสอบล่าสุด');
+        return;
+    }
+
+    const oldHTML = btn.innerHTML;
+    btn.innerHTML = `
+        <svg class="w-3.5 h-3.5 text-slate-500 animate-spin" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+        <span>กำลังตรวจเช็ก...</span>
+    `;
+    btn.disabled = true;
+
+    try {
+        const res = await window.electronAPI.checkForUpdatesManual();
+        if (!res.success) {
+            alert(res.message || 'ไม่สามารถตรวจสอบได้ในขณะนี้');
+        } else {
+            // เมื่อเป็นเวอร์ชันล่าสุดเรียบร้อย
+            const curVer = document.getElementById('app-version-label')?.innerText || '';
+            alert(`ระบบของคุณเป็นเวอร์ชันล่าสุดแล้ว (${curVer})`);
+        }
+    } catch (e) {
+        alert('เกิดข้อผิดพลาด: ' + (e.message || e));
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHTML;
+    }
+}
+
+function closeChangelogModal() {
+    const modal = document.getElementById('pos-changelog-modal');
+    if (modal) modal.classList.add('hidden');
+}
 document.addEventListener('DOMContentLoaded', initPosSidebar);

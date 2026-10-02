@@ -63,7 +63,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ⚡ 1. สร้างตัวแปรบอกตำแหน่งโฟลเดอร์เก็บรูปถาวรภายนอก
-const UPLOAD_DIR = 'C:\\ProgramData\\POS_System\\images';
+const UPLOAD_DIR = 'C:\\POS_System\\images';
 
 // ถ้ายังไม่มีโฟลเดอร์นี้ในเครื่อง ให้ Windows สร้างขึ้นมาอัตโนมัติ
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -701,7 +701,7 @@ async function autoInitDatabase() {
 // ========================================================
 // 💾 ระบบสำรองข้อมูลอัตโนมัติ (Auto-Backup ย้อนหลัง 30 วัน)
 // ========================================================
-const BACKUP_DIR = 'C:\\ProgramData\\POS_System\\backups';
+const BACKUP_DIR = 'C:\\POS_System\\backups';
 const RETENTION_DAYS = 30; // เก็บย้อนหลังสูงสุด 30 วัน
 
 // 1. ตรวจสอบและสร้างโฟลเดอร์ backups ถ้ายังไม่มี

@@ -1,6 +1,7 @@
 /**
  * 📅 Modern Calendar Picker Component (Thai Buddhist Era)
- * อัปเกรดจาก lanto-calendar.js รองรับทั้ง Drag Range, Multi-Month และเชื่อมต่อระบบเดิม 100%
+ * - แตะ/คลิกปกติ = เลือกวันเดียวทันที
+ * - กดค้างแล้วลาก = เลือกช่วงหลายวัน
  */
 class LantoCalendar {
     constructor() {
@@ -9,8 +10,12 @@ class LantoCalendar {
         this.startDate = null;
         this.endDate = null;
         this.hoverDate = null;
-        this.isDragging = false;
         this.targetInput = null;
+
+        // ตัวแปรสำหรับตรวจจับการลาก
+        this.isDragging = false;
+        this.dragMoved = false;
+        this.downCellDate = null;
 
         this.startMonthIdx = null;
         this.endMonthIdx = null;
@@ -36,7 +41,7 @@ class LantoCalendar {
         <div id="lanto-calendar-modal" style="z-index: 999999 !important;" class="fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs transition-opacity duration-200 select-none">
             <div class="relative w-full sm:max-w-md bg-white/95 backdrop-blur-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.2)] p-6 space-y-3.5 animate-in slide-in-from-bottom-5 duration-200" onclick="event.stopPropagation()">
                 
-                <!-- 🍏 1. iOS Segmented Control -->
+                <!-- 🍏 1. Segmented Control -->
                 <div class="flex p-1 bg-slate-100 rounded-2xl">
                     <button type="button" id="cal-mode-day-btn" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all bg-white text-slate-800 shadow-xs cursor-pointer">
                         เลือกช่วงวัน
@@ -46,7 +51,7 @@ class LantoCalendar {
                     </button>
                 </div>
 
-                <!-- 2. Header: เดือน / ปี พ.ศ. และปุ่มเลื่อน -->
+                <!-- 2. Header -->
                 <div class="flex items-center justify-between pb-2 border-b border-slate-100 relative">
                     <div class="flex items-center gap-1.5 relative">
                         <div id="cal-month-dropdown-wrapper" class="relative">
@@ -78,14 +83,14 @@ class LantoCalendar {
 
                 <!-- 📅 3. มุมมองรายวัน -->
                 <div id="cal-days-view-container" class="space-y-2">
-                    <div class="grid grid-cols-7 text-center gap-0">
+                    <div class="grid grid-cols-7 text-center gap-0 select-none">
                         ${this.thaiDays.map((d, i) => `
                             <span class="text-[11px] font-bold ${i === 0 ? 'text-rose-500' : 'text-slate-400'} py-1">${d}</span>
                         `).join("")}
                     </div>
-                    <div id="cal-days-grid" class="grid grid-cols-7 gap-y-1 text-center"></div>
+                    <div id="cal-days-grid" class="grid grid-cols-7 gap-y-1 text-center select-none touch-none"></div>
                     <p class="text-[11px] text-center text-slate-400 pt-1">
-                        ลากเพื่อเลือกช่วงวัน หรือคลิกวันเริ่มต้นและวันสิ้นสุด
+                        แตะเพื่อเลือกวันเดียว หรือกดค้างแล้วลากเพื่อเลือกหลายวัน
                     </p>
                 </div>
 
@@ -97,7 +102,7 @@ class LantoCalendar {
                     </p>
                 </div>
 
-                <!-- 5. Footer ด้านล่าง -->
+                <!-- 5. Footer -->
                 <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs px-1">
                     <button type="button" id="cal-clear-btn" class="px-3 py-1.5 rounded-xl font-bold text-rose-500 hover:bg-rose-50 transition-all active:scale-95 cursor-pointer">
                         ล้างค่า
@@ -208,23 +213,16 @@ class LantoCalendar {
             modal.onclick = () => this.close();
         }
 
-        document.addEventListener("mouseup", () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                if (this.startDate && this.hoverDate) {
-                    if (this.hoverDate < this.startDate) {
-                        this.endDate = new Date(this.startDate);
-                        this.startDate = new Date(this.hoverDate);
-                    } else {
-                        this.endDate = new Date(this.hoverDate);
-                    }
-                    this.hoverDate = null;
-                    this.applyRange();
-                }
-            }
+        // ดักจับการลากเมาส์ / จอสัมผัส
+        document.addEventListener("pointermove", (e) => this.handlePointerMove(e));
+        document.addEventListener("pointerup", (e) => this.handlePointerUp(e));
+        document.addEventListener("pointercancel", () => {
+            this.isDragging = false;
+            this.dragMoved = false;
+            this.hoverDate = null;
+            this.updateDaysHighlight();
         });
 
-        // 🟢 รองรับทั้ง .lanto-calendar-input, .calendar-trigger และ #custom-date-picker เดิม
         document.addEventListener("click", (e) => {
             const input = e.target.closest(".lanto-calendar-input, .calendar-trigger, #custom-date-picker");
             if (input) {
@@ -288,6 +286,7 @@ class LantoCalendar {
         this.targetInput = inputElement;
         this.closeAllDropdowns();
         this.isDragging = false;
+        this.dragMoved = false;
         this.hoverDate = null;
         this.startMonthIdx = null;
         this.endMonthIdx = null;
@@ -318,6 +317,9 @@ class LantoCalendar {
 
     close() {
         this.closeAllDropdowns();
+        this.isDragging = false;
+        this.dragMoved = false;
+        this.hoverDate = null;
         const modal = document.getElementById("lanto-calendar-modal");
         if (modal) modal.classList.add("hidden");
     }
@@ -412,35 +414,107 @@ class LantoCalendar {
 
         for (let i = firstDayIndex; i > 0; i--) {
             const dayNum = prevLastDate - i + 1;
-            grid.innerHTML += `<div class="h-10 flex items-center justify-center text-xs text-slate-300 font-medium cursor-default">${dayNum}</div>`;
+            grid.innerHTML += `<div class="h-10 flex items-center justify-center text-xs text-slate-300 font-medium cursor-default select-none">${dayNum}</div>`;
         }
-
-        let curStart = this.startDate ? new Date(this.startDate.getFullYear(), this.startDate.getMonth(), this.startDate.getDate()).getTime() : null;
-        let curEnd = this.endDate ? new Date(this.endDate.getFullYear(), this.endDate.getMonth(), this.endDate.getDate()).getTime() : null;
-
-        if (this.isDragging && this.hoverDate && curStart) {
-            let hoverTime = new Date(this.hoverDate.getFullYear(), this.hoverDate.getMonth(), this.hoverDate.getDate()).getTime();
-            if (hoverTime < curStart) {
-                curEnd = curStart;
-                curStart = hoverTime;
-            } else {
-                curEnd = hoverTime;
-            }
-        }
-
-        const todayTime = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
 
         for (let day = 1; day <= lastDate; day++) {
             const cellDate = new Date(this.viewYear, this.viewMonth, day);
-            const cellTime = cellDate.getTime();
+            const cell = document.createElement("div");
+            cell.dataset.time = cellDate.getTime();
+            cell.className = "cal-day-cell h-10 flex items-center justify-center relative cursor-pointer select-none touch-none";
+            cell.innerHTML = `<span class="cal-day-pill h-9 w-9 flex items-center justify-center text-xs font-semibold transition-all relative z-10">${day}</span>`;
 
-            const isStart = curStart && cellTime === curStart;
-            const isEnd = curEnd && cellTime === curEnd;
-            const isInRange = curStart && curEnd && cellTime > curStart && cellTime < curEnd;
+            // เมื่อกดเมาส์หรือแตะนิ้วลงไป
+            cell.onpointerdown = (e) => {
+                e.preventDefault();
+                this.isDragging = true;
+                this.dragMoved = false;
+                this.downCellDate = cellDate;
+                this.hoverDate = cellDate;
+            };
+
+            grid.appendChild(cell);
+        }
+
+        this.updateDaysHighlight();
+    }
+
+    handlePointerMove(e) {
+        // ⭐️ ถ้าไม่ได้กดค้างอยู่ ห้ามพรีวิวช่วงวันเด็ดขาด!
+        if (this.mode !== 'day' || !this.isDragging) return;
+
+        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+        const cell = targetEl ? targetEl.closest(".cal-day-cell") : null;
+        if (!cell) return;
+
+        const cellTime = parseInt(cell.dataset.time, 10);
+        const currentDateUnderPointer = new Date(cellTime);
+
+        if (this.downCellDate && this.downCellDate.getTime() !== cellTime) {
+            this.dragMoved = true;
+        }
+
+        if (!this.hoverDate || this.hoverDate.getTime() !== cellTime) {
+            this.hoverDate = currentDateUnderPointer;
+            this.updateDaysHighlight();
+        }
+    }
+
+    handlePointerUp(e) {
+        if (!this.isDragging) return;
+        this.isDragging = false;
+
+        if (this.dragMoved && this.downCellDate && this.hoverDate) {
+            // 🟢 กรณี 1: กดค้างแล้วลากข้ามวัน -> เลือกช่วงวัน (เช่น 2 - 14 ต.ค.)
+            const startT = Math.min(this.downCellDate.getTime(), this.hoverDate.getTime());
+            const endT = Math.max(this.downCellDate.getTime(), this.hoverDate.getTime());
+            this.startDate = new Date(startT);
+            this.endDate = new Date(endT);
+            this.hoverDate = null;
+            this.applyRange();
+        } else if (this.downCellDate) {
+            // 🟢 กรณี 2: คลิก/แตะธรรมดา (ไม่ได้ลาก) -> เลือกวันเดียวนั้นทันทีจบเลย!
+            this.startDate = new Date(this.downCellDate);
+            this.endDate = new Date(this.downCellDate);
+            this.hoverDate = null;
+            this.applyRange();
+        }
+    }
+
+    updateDaysHighlight() {
+        const grid = document.getElementById("cal-days-grid");
+        if (!grid) return;
+
+        let sTime = null;
+        let eTime = null;
+
+        if (this.isDragging && this.downCellDate && this.hoverDate) {
+            // ไฮไลต์ตามนิ้ว/เมาส์เฉพาะ "ตอนที่กดค้างแล้วลากอยู่เท่านั้น"
+            sTime = Math.min(this.downCellDate.getTime(), this.hoverDate.getTime());
+            eTime = Math.max(this.downCellDate.getTime(), this.hoverDate.getTime());
+        } else if (this.startDate && this.endDate) {
+            sTime = Math.min(this.startDate.getTime(), this.endDate.getTime());
+            eTime = Math.max(this.startDate.getTime(), this.endDate.getTime());
+        } else if (this.startDate) {
+            sTime = this.startDate.getTime();
+            eTime = this.startDate.getTime();
+        }
+
+        const todayTime = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+        const cells = grid.querySelectorAll(".cal-day-cell");
+
+        cells.forEach(cell => {
+            const cellTime = parseInt(cell.dataset.time, 10);
+            const pill = cell.querySelector(".cal-day-pill");
+            if (!pill) return;
+
+            const isStart = sTime && cellTime === sTime;
+            const isEnd = eTime && cellTime === eTime;
+            const isInRange = sTime && eTime && cellTime > sTime && cellTime < eTime;
             const isToday = cellTime === todayTime;
 
-            let containerClasses = "h-10 flex items-center justify-center relative cursor-pointer ";
-            let pillClasses = "h-9 w-9 flex items-center justify-center text-xs font-semibold transition-all relative z-10 ";
+            let containerClasses = "cal-day-cell h-10 flex items-center justify-center relative cursor-pointer select-none touch-none ";
+            let pillClasses = "cal-day-pill h-9 w-9 flex items-center justify-center text-xs font-semibold transition-all relative z-10 ";
 
             if (isStart && isEnd) {
                 pillClasses += "bg-blue-600 text-white rounded-2xl shadow-md shadow-blue-500/30 scale-105";
@@ -459,44 +533,9 @@ class LantoCalendar {
                 pillClasses += "text-slate-700 hover:bg-slate-100 rounded-2xl";
             }
 
-            const cell = document.createElement("div");
             cell.className = containerClasses;
-
-            cell.onmousedown = (e) => {
-                e.preventDefault();
-                this.isDragging = true;
-                this.startDate = cellDate;
-                this.endDate = null;
-                this.hoverDate = cellDate;
-                this.renderDaysGrid();
-            };
-
-            cell.onmouseenter = () => {
-                if (this.isDragging) {
-                    this.hoverDate = cellDate;
-                    this.renderDaysGrid();
-                }
-            };
-
-            cell.onclick = () => {
-                if (!this.startDate || (this.startDate && this.endDate)) {
-                    this.startDate = cellDate;
-                    this.endDate = null;
-                    this.renderDaysGrid();
-                } else {
-                    if (cellDate < this.startDate) {
-                        this.endDate = new Date(this.startDate);
-                        this.startDate = cellDate;
-                    } else {
-                        this.endDate = cellDate;
-                    }
-                    this.applyRange();
-                }
-            };
-
-            cell.innerHTML = `<span class="${pillClasses}">${day}</span>`;
-            grid.appendChild(cell);
-        }
+            pill.className = pillClasses;
+        });
     }
 
     renderMonthGrid() {
@@ -548,7 +587,6 @@ class LantoCalendar {
 // สร้าง Instance หลัก
 window.lantoCalendar = new LantoCalendar();
 
-// 🟢 ฟังก์ชันสะพานเชื่อม (Backward Compatibility) ป้องกันสคริปต์หน้าเดิมเรียกแล้ว Error
 function openCalendarModal(targetInput) {
     if (window.lantoCalendar) window.lantoCalendar.open(targetInput);
 }
