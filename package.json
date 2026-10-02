@@ -1,15 +1,15 @@
 {
   "name": "pos-system",
-  "version": "1.0.7",
+  "version": "1.0.11",
   "description": "POS System",
   "main": "main.js",
  "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "app": "chcp 65001 >nul && electron .",
-    "dist": "electron-builder",
-    "sync-master": "node -e \"const fs=require('fs'); fs.cpSync('C:/POS_System/data', './db-engine/data', {recursive:true}); fs.cpSync('C:/POS_System/images', './public/images', {recursive:true}); console.log('✅ ซิงค์ข้อมูลล่าสุดเข้าโปรเจกต์สำเร็จ');\"",
-    "release": "npm run sync-master && electron-builder --publish always"
+  "start": "node server.js",
+  "dev": "nodemon server.js",
+  "app": "chcp 65001 >nul && electron .",
+  "dist": "electron-builder",
+  "sync-master": "node -e \"const fs=require('fs'); fs.cpSync('C:/POS_System/data', './db-engine/data', {recursive:true}); fs.cpSync('C:/POS_System/images', './public/images', {recursive:true}); console.log('✅ ซิงค์ข้อมูลล่าสุดเข้าโปรเจกต์สำเร็จ');\"",
+  "release": "npm run sync-master && electron-builder --publish always"
   },
   "keywords": [],
   "author": "",
@@ -41,7 +41,8 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "public/favicon.ico"
+      "icon": "public/favicon.ico",
+      "artifactName": "${name}-Setup-${version}.${ext}"
     },
     "extraResources": [
       {

@@ -408,13 +408,12 @@ function renderModalState() {
             </button>
         `;
     } else if (updateState === 'AVAILABLE') {
-        // สถานะ: พบเวอร์ชันใหม่ มีปุ่มให้เริ่มอัปเดต
         tag.innerText = `พบเวอร์ชันใหม่ v${pendingUpdateInfo.version}`;
         content.innerHTML = `
             <div class="p-3 bg-blue-50 rounded-2xl border border-blue-100 text-blue-700 font-semibold mb-2 text-xs">
                 🎉 มีเวอร์ชันใหม่พร้อมใช้งาน
             </div>
-            <div class="whitespace-pre-line text-xs font-medium text-slate-600 leading-relaxed max-h-40 overflow-y-auto">
+            <div class="whitespace-pre-line text-xs font-medium text-slate-600 leading-relaxed">
                 ${pendingUpdateInfo.notes}
             </div>
         `;
@@ -431,7 +430,7 @@ function renderModalState() {
         tag.innerText = `เวอร์ชันปัจจุบัน (${curVer})`;
         content.innerHTML = `
             <div id="github-release-content" class="text-xs text-slate-500 py-4 text-center">
-                กำลังโหลดรายละเอียดจาก GitHub...
+                กำลังโหลดรายละเอียดจาก...
             </div>
         `;
         actions.innerHTML = `
@@ -451,7 +450,7 @@ function renderModalState() {
                 if (!box) return;
                 
                 if (res.success && res.notes) {
-                    box.className = "text-xs text-slate-600 leading-relaxed text-left space-y-1 pr-1";
+                    box.className = "text-xs text-slate-600 leading-relaxed text-left space-y-1 pr-2";
                     box.innerHTML = formatMarkdownToHtml(res.notes);
                 } else {
                     box.className = "text-xs text-slate-400 py-3 text-center";

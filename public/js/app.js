@@ -308,21 +308,11 @@ function refocusBarcode() {
     }
 }
 
-function autoFixThaiBarcode(inputElement) {
-    if (!inputElement) return;
+// 🌟 ระบบดักจับบาร์โค้ดส่วนกลาง (Global Barcode Sniffer) 🌟
+// 🌟 ระบบดักจับบาร์โค้ดความเร็วสูง + ควบคุมเคอร์เซอร์ด้วย Enter 🌟
+let globalBarcodeBuffer = '';
+let globalBarcodeTimeout = null;
 
-    // แปลงเฉพาะตอนเคาะ Enter หรือพิมพ์เสร็จแล้วเท่านั้น ป้องกันบัฟเฟอร์เครื่องยิงหลุด
-    inputElement.addEventListener('change', (e) => {
-        let value = e.target.value;
-        let converted = '';
-        for (let char of value) {
-            converted += (thaiBarcodeKeyMap[char] !== undefined) ? thaiBarcodeKeyMap[char] : char;
-        }
-        e.target.value = converted.replace(/[^0-9a-zA-Z_.*-]/g, '');
-    });
-}
-
-// 🌟 ระบบควบคุมช่องสแกนบาร์โค้ดแบบ Hybrid (ปล่อยเมาส์อิสระ + กด Enter เพื่อสแกน) 🌟
 function setupBarcodeScanner() {
     const input = document.getElementById('barcode-input');
     const pIdInput = document.getElementById('p-id');
@@ -333,21 +323,17 @@ function setupBarcodeScanner() {
         });
     }
 
+    // ⚡ 1. การทำงานเมื่อเคอร์เซอร์อยู่ในช่องสแกน
     if (input) {
-        // ⚡ 1. แปลงภาษาไทยเป็นตัวเลขทันทีที่ยิง
-        input.addEventListener('input', () => {
-            const fixed = checkAndFixThaiBarcode(input.value);
-            if (fixed !== input.value) {
-                input.value = fixed;
-            }
-        });
+        // ❌ ตัด input.addEventListener('input') ทิ้ง เพื่อไม่ให้แย่งเขียนทับตอนเครื่องยิงกำลังรัวตัวเลข
 
-        // ⚡ 2. สแกนบาร์โค้ดปกติ หรือรองรับสูตรคูณจำนวน เช่น 3*123456
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                let rawInput = checkAndFixThaiBarcode(input.value.trim());
-                if (!rawInput) {
+                const val = input.value.trim();
+
+                if (!val) {
+                    // ถ้าช่องว่างแล้วกด Enter -> เปิดหน้าต่างชำระเงิน
                     if (typeof cart !== 'undefined' && cart && cart.length > 0) {
                         if (typeof openPaymentModal === 'function') openPaymentModal();
                     } else {
@@ -358,61 +344,108 @@ function setupBarcodeScanner() {
                     return;
                 }
 
-                // 🌟 ตรวจจับรูปแบบ "จำนวน*บาร์โค้ด" 🌟
-                let multiplyQty = 1;
-                let actualBarcode = rawInput;
-
-                if (rawInput.includes('*')) {
-                    const parts = rawInput.split('*');
-                    const parsedQty = parseInt(parts[0], 10);
-                    if (!isNaN(parsedQty) && parsedQty > 0 && parts[1]) {
-                        multiplyQty = parsedQty;
-                        actualBarcode = parts[1].trim();
-                    }
-                }
-
-                if (typeof cleanBarcodeString === 'function') {
-                    actualBarcode = cleanBarcodeString(actualBarcode) || actualBarcode;
-                }
-
-                if (actualBarcode) {
-                    if (typeof closeImagePreviewModal === 'function') closeImagePreviewModal();
-                    input.value = '';
-
-                    // ⚡ เพิ่มสินค้าลงตะกร้าตามจำนวนที่คูณ โดยจำกัดไม่ให้เกิน 99 ชิ้นต่อครั้งเพื่อป้องกันจอค้าง
-                    if (typeof addToCart === 'function') {
-                        const finalQty = Math.min(multiplyQty, 99);
-                        for (let i = 0; i < finalQty; i++) {
-                            addToCart(actualBarcode);
-                        }
-                    }
-                    input.focus();
-                }
+                // แปลงภาษาไทยและยิงเข้าตะกร้าตอนกด Enter ทีเดียว ข้อมูลจะมาครบ 100%
+                processBarcodeScan(val);
+                input.value = '';
+                input.focus();
             }
         });
     }
 
-    // ⚡ 3. กด Enter 1 ครั้งจากตรงไหนก็ได้บนหน้าจอ เพื่อดึงเคอร์เซอร์มาที่ช่องสแกนทันที
+    // ⚡ 2. การทำงานระดับ Global (เมื่อเคอร์เซอร์อยู่นอกช่อง หรือไม่ได้คลิกอะไร)
     document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
         const activeEl = document.activeElement;
         const activeTag = activeEl ? activeEl.tagName.toLowerCase() : '';
         const activeId = activeEl ? activeEl.id : '';
-        const openModal = document.querySelector('[id$="-modal"]:not(.hidden)');
 
-        if (openModal || activeTag === 'textarea' || (activeTag === 'input' && activeId !== 'barcode-input')) {
+        // ถ้ากำลังพิมพ์ในช่องค้นหาสินค้า, กล่องข้อความ หรือ Modal อื่น ให้ข้ามไป
+        const isTypingField = activeTag === 'textarea' || (activeTag === 'input' && activeId !== 'barcode-input');
+        if (isTypingField) return;
+
+        // ถ้าเคอร์เซอร์อยู่ในช่อง barcode-input อยู่แล้ว ให้บล็อกด้านบนจัดการ
+        if (activeEl && activeId === 'barcode-input') return;
+
+        // 🟢 เมื่อกด Enter จากหน้าจอว่างๆ
+        if (e.key === 'Enter') {
+            if (globalBarcodeBuffer.trim().length >= 3) {
+                // กรณียิงบาร์โค้ดเข้ามาแบบ Global
+                e.preventDefault();
+                processBarcodeScan(globalBarcodeBuffer.trim());
+                globalBarcodeBuffer = '';
+            } else {
+                // 🎯 เมื่ออยู่หน้าเปล่าๆ แล้วเคาะ Enter -> เด้งเคอร์เซอร์เข้าช่องสแกนทันที!
+                e.preventDefault();
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }
             return;
         }
 
-        if (e.key === 'Enter' && activeEl !== input) {
-            e.preventDefault();
-            if (input) {
-                input.focus();
-                input.select();
-            }
+        // ดักเก็บตัวอักษรเข้า Buffer (ขยายเวลาเป็น 400ms เพื่อความเสถียร ไม่หลุดเฟรม)
+        if (e.key.length === 1) {
+            globalBarcodeBuffer += e.key;
+
+            clearTimeout(globalBarcodeTimeout);
+            globalBarcodeTimeout = setTimeout(() => {
+                globalBarcodeBuffer = '';
+            }, 400);
         }
     });
 }
+// 🟢 ฟังก์ชันแกนกลางประมวลผลบาร์โค้ดลงตะกร้า (รองรับตัวคูณที่พิมพ์ค้างไว้ในช่องสแกน)
+function processBarcodeScan(rawText) {
+    if (!rawText) return;
 
+    const inputEl = document.getElementById('barcode-input');
+    const inputPrefix = inputEl ? inputEl.value.trim() : '';
+
+    // ⚡ ดึงตัวคูณที่พิมพ์ค้างไว้ เช่น "5*" ในช่องมารวมกับบาร์โค้ดที่เพิ่งยิง
+    let combinedText = rawText;
+    if (!combinedText.includes('*') && inputPrefix.endsWith('*')) {
+        combinedText = inputPrefix + combinedText;
+    }
+
+    let rawInput = checkAndFixThaiBarcode(combinedText);
+    let multiplyQty = 1;
+    let actualBarcode = rawInput;
+
+    // รองรับสูตรคูณ เช่น 5*บาร์โค้ด
+    if (rawInput.includes('*')) {
+        const parts = rawInput.split('*');
+        const parsedQty = parseInt(parts[0], 10);
+        if (!isNaN(parsedQty) && parsedQty > 0 && parts[1]) {
+            multiplyQty = parsedQty;
+            actualBarcode = parts[1].trim();
+        }
+    }
+
+    if (typeof cleanBarcodeString === 'function') {
+        actualBarcode = cleanBarcodeString(actualBarcode) || actualBarcode;
+    }
+
+    if (actualBarcode) {
+        // ปิดหน้าต่างพรีวิวรูปภาพทันทีถ้าเปิดค้างอยู่
+        if (typeof closeImagePreviewModal === 'function') {
+            closeImagePreviewModal();
+        }
+
+        // ⚡ ล้างค่าในช่องสแกนทิ้งทันที เพื่อไม่ให้ "5*" ค้างอยู่รอบถัดไป
+        if (inputEl) {
+            inputEl.value = '';
+        }
+
+        if (typeof addToCart === 'function') {
+            const finalQty = Math.min(multiplyQty, 99);
+            for (let i = 0; i < finalQty; i++) {
+                addToCart(actualBarcode);
+            }
+        }
+    }
+}
 function setupSearchProductEnter() {
     const searchInput = document.getElementById('search-product');
     if (!searchInput) return;

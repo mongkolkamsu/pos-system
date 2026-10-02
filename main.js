@@ -369,8 +369,11 @@ ipcMain.handle('start-download-update', () => {
 });
 
 ipcMain.handle('restart-and-install-update', () => {
-  // Silent install = true (ซ่อนหน้าต่าง setup หลอดเขียว), isForceRunAfter = true (เปิดแอปใหม่ทันที)[cite: 29]
-  autoUpdater.quitAndInstall(true, true);
+  // สั่งดับโปรเซส MariaDB ก่อนทันที เพื่อปลดล็อกไฟล์ ไม่ให้ตัวติดตั้ง NSIS ค้างรอ
+  stopDatabase();
+  setTimeout(() => {
+    autoUpdater.quitAndInstall(true, true);
+  }, 600);
 });
 
 ipcMain.handle('print-tags-direct', async (event, data) => {
