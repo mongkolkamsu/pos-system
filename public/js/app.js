@@ -325,14 +325,16 @@ function setupBarcodeScanner() {
 
     // ⚡ 1. การทำงานเมื่อเคอร์เซอร์อยู่ในช่องสแกน
     if (input) {
-        // ❌ ตัด input.addEventListener('input') ทิ้ง เพื่อไม่ให้แย่งเขียนทับตอนเครื่องยิงกำลังรัวตัวเลข
-
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 const val = input.value.trim();
 
                 if (!val) {
+                    // 🛑 ตัดสัญญาณ Enter ไม่ให้ทะลุ (Bubble) ไปถึง Modal ชำระเงิน
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
                     // ถ้าช่องว่างแล้วกด Enter -> เปิดหน้าต่างชำระเงิน
                     if (typeof cart !== 'undefined' && cart && cart.length > 0) {
                         if (typeof openPaymentModal === 'function') openPaymentModal();
@@ -375,11 +377,14 @@ function setupBarcodeScanner() {
                 processBarcodeScan(globalBarcodeBuffer.trim());
                 globalBarcodeBuffer = '';
             } else {
-                // 🎯 เมื่ออยู่หน้าเปล่าๆ แล้วเคาะ Enter -> เด้งเคอร์เซอร์เข้าช่องสแกนทันที!
-                e.preventDefault();
-                if (input) {
-                    input.focus();
-                    input.select();
+                // 🎯 เช็กก่อนว่ามี Modal ใดๆ เปิดอยู่หรือไม่ ถ้าไม่มีเลยถึงจะดึงเคอร์เซอร์ไปช่องสแกน
+                const openModal = document.querySelector('[id$="-modal"]:not(.hidden)');
+                if (!openModal) {
+                    e.preventDefault();
+                    if (input) {
+                        input.focus();
+                        input.select();
+                    }
                 }
             }
             return;

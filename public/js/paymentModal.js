@@ -92,12 +92,11 @@ function loadPaymentModalHTML() {
                 </button>
             </div>
 
-            <!-- 2. ส่วนคำนวณเงินสด -->
+            <!-- 2. ส่วนคำนวณเงินสด (เอา inline onkeydown confirmPayment ซ้ำซ้อนออก) -->
             <div id="cash-payment-section" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1.5">จำนวนเงินที่รับมา (บาท)</label>
                     <input type="number" id="pay-received-input" step="any" placeholder="0.00" oninput="calculateChange()" 
-                            onkeydown="if(event.key==='Enter') { event.preventDefault(); confirmPayment(); }" 
                             class="w-full text-center text-3xl font-black p-4 bg-slate-50 border-2 border-slate-200 focus:border-emerald-500 rounded-2xl text-slate-900 focus:outline-none transition shadow-inner">
                 </div>
 
@@ -183,13 +182,15 @@ function loadPaymentModalHTML() {
     `;
 }
 
+// 🟢 ตัวแปรบันทึกเวลาที่เปิดหน้าต่าง Modal ชำระเงิน
+let modalOpenedAt = 0;
+
 function openPaymentModal() {
     if (!cart || cart.length === 0) {
         showCustomModal('warning', 'ไม่มีสินค้าในตะกร้า', 'กรุณาเลือกสินค้าก่อนทำรายการชำระเงิน');
         return;
     }
 
-    // 🟢 ปลดล็อกปุ่มยืนยันให้กดได้เสมอเมื่อเปิดหน้าต่างขึ้นมา
     const btnConfirm = document.getElementById('btn-confirm-payment');
     if (btnConfirm) btnConfirm.disabled = false;
 
@@ -200,6 +201,9 @@ function openPaymentModal() {
     if (totalEl) totalEl.innerText = `฿${currentTotalBill.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
     
     setPaymentMethod('cash');
+
+    // 🟢 บันทึกเวลาที่เปิดหน้าต่าง เพื่อใช้เช็กหน่วงเวลา
+    modalOpenedAt = Date.now();
     if (modal) modal.classList.remove('hidden');
     
     setTimeout(() => {
@@ -215,7 +219,7 @@ function openPaymentModal() {
 
 function closePaymentModal() {
     stopPaymentListener();
-    stopQRCountdown(); // ⭐️ หยุดนับเวลาเมื่อปิด Modal
+    stopQRCountdown();
     const modal = document.getElementById('payment-modal');
     if (modal) modal.classList.add('hidden');
     const menu = document.getElementById('debtor-suggestions-menu');
@@ -228,19 +232,25 @@ document.addEventListener('keydown', (e) => {
     // ถ้าหน้าต่างชำระเงินไม่ได้เปิดอยู่ ให้ข้ามไป
     if (!modal || modal.classList.contains('hidden')) return;
 
-    // 1. กด Escape เพื่อปิดหน้าต่างชำระเงิน
+    // 1. กด Escape เพื่อปิดหน้าต่างชำระเงินได้ทันที
     if (e.key === 'Escape') {
         e.preventDefault();
         closePaymentModal();
         return;
     }
 
-    // 2. กด Enter เพื่อยืนยันการชำระเงิน (ทำงานทุกแท็บ: สแกน/โอน, โครงการรัฐ, ติดเงิน, เงินสด)
+    // 2. กด Enter เพื่อยืนยันการชำระเงิน
     if (e.key === 'Enter') {
-        e.preventDefault();
-        e.stopImmediatePropagation(); // ป้องกันไม่ให้ปุ่มแท็บเดิมหรือโค้ดอื่นแย่ง Event
+        // 🛑 ป้องกัน Enter ตัวเดิมที่เพิ่งกดเปิด Modal ทะลุเข้ามายืนยันจ่ายเงิน (หน่วงเวลา 300ms)
+        if (Date.now() - modalOpenedAt < 300) {
+            e.preventDefault();
+            return;
+        }
 
-        // ถ้าอยู่ในแท็บติดเงิน แล้วมีเมนูดรอปดาวน์รายชื่อลูกหนี้เปิดอยู่
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        // ถ้าอยู่ในแท็บติดเงิน แล้วมีเมนูดรอปดาวน์รายชื่อลูกหนี้เปิดอยู่ ให้เลือกรายชื่อก่อน
         const menu = document.getElementById('debtor-suggestions-menu');
         if (menu && !menu.classList.contains('hidden')) {
             const firstOption = menu.querySelector('#debtor-suggestions-list > div');
@@ -250,7 +260,7 @@ document.addEventListener('keydown', (e) => {
             }
         }
 
-        // สั่งยืนยันการชำระเงินทันที
+        // สั่งยืนยันการชำระเงิน
         confirmPayment();
     }
 });
