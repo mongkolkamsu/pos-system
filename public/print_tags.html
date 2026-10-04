@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>พิมพ์ป้ายบาร์โค้ดและราคา</title>
+    <title>พิมพ์ป้ายบาร์โค้ดและราคา - POS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,45 +14,47 @@
     
     <style>
         *, body { font-family: 'Sarabun', 'Inter', sans-serif !important; box-sizing: border-box; }
-        
+
+        /* แผ่นจำลอง A4 บนหน้าจอพรีวิว */
         .preview-a4-sheet {
             width: 100%;
-            max-width: 680px;
+            max-width: 720px;
             aspect-ratio: 210 / 297;
             background: white;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
             border: 1px solid #cbd5e1;
-            padding: 16px 20px 32px 20px;
+            padding: 14mm 8mm 10mm 8mm;
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
             overflow: hidden;
+            position: relative;
         }
 
-        .preview-grid-12 {
+        /* ตาราง 12 ป้าย/แผ่น (3 x 4) */
+        .grid-12-layout {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(4, 1fr);
-            gap: 8px;
-            flex: 1;
-            min-height: 0;
-            margin-top: 6px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-rows: repeat(4, minmax(0, 1fr));
+            gap: 3.5mm;
+            height: 100%;
+            width: 100%;
         }
 
-        .preview-grid-compact {
+        /* ตาราง 32 ป้าย/แผ่น (4 x 8 ป้ายชั้นวางกระชับ) */
+        .grid-32-layout {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(7, 1fr); 
-            gap: 8px;
-            flex: 1;
-            margin-top: 6px;
-            min-height: 0;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-rows: repeat(8, minmax(0, 1fr));
+            gap: 2.5mm;
+            height: 100%;
+            width: 100%;
         }
 
-        .preview-tag-card {
-            border: 1.5px dashed #94a3b8;
-            border-radius: 8px;
-            padding: 6px;
+        .tag-card-12 {
+            border: 1px dashed #94a3b8;
+            border-radius: 6px;
+            padding: 2mm;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -63,10 +65,11 @@
             overflow: hidden;
         }
 
-        .preview-tag-card-compact {
-            border: 1.5px dashed #64748b;
-            border-radius: 8px;
-            padding: 8px 6px; 
+        /* 🌟 สไตล์ป้ายชั้นวาง: ชื่อสินค้า -> ราคาตรงกลาง -> บาร์โค้ดล่างสุด 🌟 */
+        .tag-card-compact {
+            border: 1px dashed #94a3b8;
+            border-radius: 5px;
+            padding: 1.5mm 1.5mm 1mm 1.5mm;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -75,204 +78,191 @@
             background: white;
             height: 100%;
             overflow: hidden;
-            gap: 4px;
         }
 
-        .preview-tag-card-compact p, .preview-tag-card p {
-            line-height: 1.6 !important;
-            padding-top: 4px !important;
+        .tag-card-compact .tag-title {
+            font-size: 9px !important;
+            font-weight: 700 !important;
+            line-height: 1.25 !important;
+            color: #1e293b !important;
+            margin: 0 !important;
+            padding-top: 1px !important;
+            width: 100% !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2 !important;
+            -webkit-box-orient: vertical !important;
+            overflow: hidden !important;
+            word-break: break-word !important;
+            min-height: 22.5px !important; /* ล็อกความสูง 2 บรรทัดไว้เสมอ */
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        #print-preview-modal.print-bw #preview-sheets-container { filter: grayscale(100%) contrast(130%) !important; }
-
-        @media print {
-            .print-header-info { display: none !important; }
-            body { background: white !important; margin: 0; padding: 0 !important; }
-            .preview-a4-sheet {
-                box-shadow: none !important;
-                border: none !important;
-                width: 100% !important;
-                height: 100% !important;
-                max-width: none !important;
-                padding: 5mm 5mm 12mm 5mm !important;
-                margin: 0 !important;
-                page-break-after: always;
-                aspect-ratio: 210 / 297 !important;
-            }
-        }
-        ::-webkit-scrollbar {
-            width: 7px;
-            height: 7px;
+        .tag-card-compact .price-container {
+            display: flex !important;
+            align-items: baseline !important;
+            justify-content: center !important;
+            margin: auto 0 !important;
         }
 
-        ::-webkit-scrollbar-button {
-            display: none !important;
-            width: 0 !important;
-            height: 0 !important;
+        .tag-card-compact .price-val {
+            font-size: 16px !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            color: #0f172a !important;
+            letter-spacing: -0.5px !important;
         }
 
-        ::-webkit-scrollbar-track {
-            background: transparent !important;
+        .tag-card-compact .barcode-wrapper {
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin-top: auto !important;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 9999px !important;
-            border: none !important;
-            min-height: 40px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: #94a3b8;
+        .print-bw-filter {
+            filter: grayscale(100%) contrast(140%) !important;
         }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-4 sm:p-6 text-slate-800 antialiased">
+<body class="bg-slate-100 min-h-screen text-slate-800 antialiased p-3 sm:p-5">
 
-    <!-- แถบควบคุมด้านบน -->
-    <div class="no-print max-w-6xl mx-auto bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm mb-6 space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+    <!-- แผงควบคุมส่วนบน -->
+    <div class="max-w-6xl mx-auto space-y-3 mb-5">
+        <div class="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <button type="button" onclick="smartGoBack()" title="ปิดหน้านี้" 
-                        class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition active:scale-95 cursor-pointer">
+                <button type="button" onclick="smartGoBack()" title="กลับหน้าหลัก" 
+                        class="w-10 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-600 transition active:scale-95 cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <div>
-                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">พิมพ์ป้ายสินค้า / บาร์โค้ด</h1>
-                    <p class="text-xs text-slate-400 font-medium">แสดงรูปภาพ ชื่อสินค้า บาร์โค้ด และราคา</p>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">พิมพ์ป้ายสินค้า & บาร์โค้ด</h1>
+                    <p class="text-xs text-slate-400 font-medium">แตะเลือกสินค้าที่ต้องการ แล้วกดดูตัวอย่างเพื่อจัดพิมพ์ลงกระดาษ A4</p>
                 </div>
             </div>
 
             <div class="flex items-center gap-2">
-                <button type="button" onclick="handlePrintAction()" class="px-4 sm:px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-bold transition active:scale-95 shadow-md flex items-center gap-2 cursor-pointer">
+                <button type="button" onclick="openPrintPreviewModal()" 
+                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-blue-600/25 transition flex items-center gap-2 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                    <span>สั่งพิมพ์ (<span id="selected-count">0</span>)</span>
-                </button>
-                <button type="button" onclick="openExternalBrowser()" 
-                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-md">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                    <span>เปิดพิมพ์ใน Chrome (มีพรีวิว)</span>
+                    <span>ดูตัวอย่าง & สั่งพิมพ์ (<span id="selected-count">0</span> ป้าย)</span>
                 </button>
             </div>
         </div>
 
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
-            <div class="relative flex-1 min-w-[200px]">
-                <input type="text" id="search-input" oninput="renderTags(true)" placeholder="ค้นหาชื่อสินค้า หรือรหัสบาร์โค้ด..." 
-                       class="w-full h-10 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium focus:outline-none focus:border-slate-400 transition">
+        <!-- แถบตัวกรองและค้นหา -->
+        <div class="bg-white p-3.5 sm:p-4 rounded-3xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            <div class="relative flex-1 min-w-[220px]">
+                <input type="text" id="search-input" oninput="renderProductSelection(true)" placeholder="ค้นหาชื่อสินค้า หรือ รหัสบาร์โค้ด..." 
+                       class="w-full h-10 pl-9 pr-4 bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-2xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none transition">
                 <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
 
-            <div class="relative w-full sm:w-56 flex-shrink-0" id="category-dropdown-wrapper">
-                <input type="hidden" id="category-select" value="all">
-                <button type="button" id="category-dropdown-btn" onclick="toggleCategoryDropdown()" 
-                        class="w-full h-10 px-3.5 bg-slate-50 hover:bg-slate-100/70 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-slate-400 transition flex items-center justify-between cursor-pointer shadow-2xs">
-                    <span id="category-dropdown-label" class="truncate">ทุกหมวดหมู่สินค้า</span>
-                    <svg id="category-dropdown-arrow" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
+            <select id="category-filter" onchange="renderProductSelection(true)" 
+                    class="h-10 px-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                <option value="all">ทุกหมวดหมู่สินค้า</option>
+                <option value="no_barcode">รายการที่ไม่มีบาร์โค้ด</option>
+            </select>
+
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="selectAllFiltered(true)" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95">
+                    เลือกทั้งหมด
                 </button>
-
-                <div id="category-dropdown-menu" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 text-xs max-h-60 overflow-y-auto">
-                    <div id="category-dropdown-list"></div>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-3 flex-shrink-0">
-                <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
-                    <input type="checkbox" id="only-has-image" checked onchange="handleImageCheckboxChange()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
-                    <span>เฉพาะที่มีรูป</span>
-                </label>
-
-                <button type="button" onclick="toggleSelectAll()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95">
-                    เลือกทั้งหมด / ยกเลิก
+                <button type="button" onclick="selectAllFiltered(false)" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95">
+                    ล้างการเลือก
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- หน้าต่าง Print Preview -->
-    <div id="print-preview-modal" class="no-print fixed inset-0 bg-slate-200 z-50 flex flex-col hidden select-none animate-in fade-in duration-150">
-        <div class="bg-white border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-xs flex-shrink-0">
+    <!-- ตารางการ์ดสินค้าสำหรับคลิกเลือกป้าย -->
+    <div id="product-selection-grid" class="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pb-12"></div>
+
+    <!-- Modal ตัวอย่างก่อนพิมพ์ (Print Preview Modal) -->
+    <div id="print-preview-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex flex-col hidden select-none animate-in fade-in duration-150">
+        
+        <!-- แถบเครื่องมือตั้งค่าพิมพ์ด้านบน -->
+        <div id="print-toolbar-header" class="bg-white border-b border-slate-200 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shadow-xs flex-shrink-0">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-sm">📄</div>
+                <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">📄</div>
                 <div>
-                    <h3 class="text-sm font-bold text-slate-900 leading-tight">ตัวอย่างก่อนพิมพ์ (Print Preview)</h3>
-                    <p class="text-[11px] text-slate-500">ปรับแต่งตัวเลือกด้านล่าง แล้วตรวจสอบหน้ากระดาษก่อนสั่งพิมพ์</p>
+                    <h3 class="text-sm font-bold text-slate-900 leading-tight">ตัวอย่างหน้ากระดาษ A4 ก่อนพิมพ์</h3>
+                    <p id="preview-summary-text" class="text-[11px] text-slate-400 font-medium">กำลังคำนวณจำนวนหน้า...</p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80">
-                <div class="flex bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs text-xs font-bold">
-                    <button type="button" id="mode-btn-color" onclick="setPrintColorMode(true)" 
-                            class="px-3 py-1 rounded-lg bg-blue-600 text-white shadow-2xs transition cursor-pointer">
-                        🎨 สี
-                    </button>
-                    <button type="button" id="mode-btn-bw" onclick="setPrintColorMode(false)" 
+            <!-- ตัวเลือกขนาดป้าย / สี / ราคา / ช่วงหน้า -->
+            <div class="flex flex-wrap items-center gap-2.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80 text-xs font-bold text-slate-700">
+                <div class="flex bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
+                    <button type="button" id="opt-layout-12" onclick="setTagLayout(12)" 
                             class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer">
-                        ⬛ ขาวดำ
+                        🖼️ 12 ป้าย (มีรูป)
+                    </button>
+                    <button type="button" id="opt-layout-32" onclick="setTagLayout(32)" 
+                            class="px-3 py-1 rounded-lg bg-blue-600 text-white transition cursor-pointer">
+                        🏷️ 32 ป้าย (ชั้นวางสินค้า)
                     </button>
                 </div>
 
                 <div class="w-px h-5 bg-slate-300"></div>
 
-                <div class="flex items-center gap-2.5 text-xs font-bold text-slate-700">
-                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
-                        <input type="checkbox" id="chk-opt-img" checked onchange="updateTagElements()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
-                        <span>รูปภาพ</span>
-                    </label>
-                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
-                        <input type="checkbox" id="chk-opt-barcode" checked onchange="updateTagElements()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
-                        <span>บาร์โค้ด</span>
-                    </label>
-                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
-                        <input type="checkbox" id="chk-opt-price" checked onchange="updateTagElements()" class="w-4 h-4 rounded text-blue-600 border-slate-300 cursor-pointer">
-                        <span>ราคา</span>
-                    </label>
+                <div class="flex bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
+                    <button type="button" id="opt-color-btn" onclick="setPrintColor(true)" 
+                            class="px-2.5 py-1 rounded-lg bg-slate-900 text-white transition cursor-pointer">สี</button>
+                    <button type="button" id="opt-bw-btn" onclick="setPrintColor(false)" 
+                            class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer">ขาวดำ</button>
+                </div>
+
+                <div class="w-px h-5 bg-slate-300"></div>
+
+                <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" id="chk-show-price" checked onchange="buildPreviewSheets()" class="rounded text-blue-600">
+                    <span>แสดงราคา</span>
+                </label>
+
+                <div class="w-px h-5 bg-slate-300"></div>
+
+                <!-- ช่องเลือกหน้าที่ต้องการพิมพ์ -->
+                <div class="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200 shadow-2xs">
+                    <span>พิมพ์หน้า:</span>
+                    <input type="text" id="print-page-range" value="ทั้งหมด" placeholder="เช่น 1 หรือ 1-2" 
+                           onfocus="this.select()" 
+                           oninput="filterPagesByRange()" 
+                           class="w-20 px-1 py-0.5 bg-slate-50 border border-slate-300 focus:border-blue-500 rounded-lg text-xs font-bold text-center focus:outline-none">
                 </div>
             </div>
 
-            <div class="flex items-center gap-2.5">
-                <span id="preview-page-info" class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
-                    กำลังคำนวณหน้า...
-                </span>
-                
-                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
-                    <span>พิมพ์หน้า:</span>
-                    <input type="text" id="print-page-range" value="ทั้งหมด" placeholder="เช่น 1 หรือ 1-2" 
-                        onfocus="this.select()" 
-                        oninput="filterPreviewPages()" 
-                        class="w-20 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500 text-center">
-                </div>
-
-                <button type="button" onclick="closePrintPreview()" 
-                        class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer">
+            <!-- ปุ่มสั่งพิมพ์ -->
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="closePrintPreviewModal()" 
+                        class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer">
                     ยกเลิก / แก้ไข
                 </button>
-
-                <button type="button" id="confirm-print-btn" onclick="executeFinalPrint()" 
-                        class="px-4 py-1.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95">
-                    <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                    <span>ยืนยันพิมพ์ออกเครื่อง HP</span>
+                <button type="button" id="btn-execute-print" onclick="executeDirectPrint()" 
+                        class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-emerald-600/25 transition flex items-center gap-2 cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    <span>สั่งพิมพ์ทันที (Print)</span>
                 </button>
             </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center gap-8 bg-slate-200">
-            <div id="preview-sheets-container" class="flex flex-col items-center gap-8 w-full max-w-[760px]"></div>
+        <!-- หน้าจอแสดงผลแผ่นจำลอง A4 -->
+        <div id="preview-scroll-viewport" class="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center gap-6 bg-slate-200/80">
+            <div id="preview-sheets-container" class="flex flex-col items-center gap-8 w-full max-w-[720px]"></div>
         </div>
     </div>
 
-    <div id="print-area" class="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 pb-12"></div>
     <script src="js/sidebar.js"></script>
     <script>
         window.placeholderSVG = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%239CA3AF%22%3E%3Cpath stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%221.5%22 d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E";
 
         let allProducts = [];
         let categories = [];
-        let selectedIds = new Set();
-        let visibleProductLimit = 40;
-        let currentFilteredProducts = [];
+        let selectedProductIds = new Set();
+        let currentTagLayout = 32; // ตั้งต้นที่ 32 ป้าย (ชั้นวางสินค้า)
+        let isColorPrint = true;
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -283,131 +273,43 @@
                 allProducts = await resProd.json();
                 categories = await resCat.json();
 
-                renderCategoryOptions();
-                
-                allProducts.forEach(p => {
-                    if (hasValidImage(p)) selectedIds.add(String(p.id).trim());
-                });
-
-                renderTags(true);
+                populateCategoryDropdown();
+                selectedProductIds.clear(); // เริ่มต้นที่ 0 ป้าย
+                renderProductSelection();
             } catch (err) {
-                console.error('Fetch data error:', err);
-            }
-
-            window.addEventListener('scroll', () => {
-                if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 350) {
-                    if (visibleProductLimit < currentFilteredProducts.length) {
-                        visibleProductLimit += 40;
-                        renderTags(false);
-                    }
-                }
-            });
-        });
-
-        function renderCategoryOptions() {
-            const listContainer = document.getElementById('category-dropdown-list');
-            if (!listContainer || !Array.isArray(categories)) return;
-
-            let html = `
-                <div onclick="selectCategoryOption('all', 'ทุกหมวดหมู่สินค้า')" 
-                     class="px-3.5 py-2 hover:bg-slate-50 font-bold text-slate-800 cursor-pointer transition flex items-center justify-between border-b border-slate-50">
-                    <span>ทุกหมวดหมู่สินค้า</span>
-                </div>
-                <div onclick="selectCategoryOption('no_barcode', 'รายการที่ไม่มีบาร์โค้ด')" 
-                     class="px-3.5 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer transition flex items-center justify-between border-b border-slate-50">
-                    <span>รายการที่ไม่มีบาร์โค้ด</span>
-                </div>
-            `;
-
-            categories.forEach(cat => {
-                if (cat.key_name !== 'no_barcode' && cat.label_name !== 'รายการที่ไม่มีบาร์โค้ด') {
-                    const safeKey = cat.key_name.replace(/'/g, "\\'");
-                    const safeLabel = cat.label_name.replace(/'/g, "\\'");
-                    html += `
-                        <div onclick="selectCategoryOption('${safeKey}', '${safeLabel}')" 
-                             class="px-3.5 py-2 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition flex items-center justify-between border-b border-slate-50 last:border-b-0">
-                            <span>${cat.label_name}</span>
-                        </div>
-                    `;
-                }
-            });
-
-            listContainer.innerHTML = html;
-        }
-
-        function toggleCategoryDropdown() {
-            const menu = document.getElementById('category-dropdown-menu');
-            const arrow = document.getElementById('category-dropdown-arrow');
-            if (!menu) return;
-            menu.classList.toggle('hidden');
-            if (arrow) arrow.classList.toggle('rotate-180');
-        }
-
-        function selectCategoryOption(val, label) {
-            const hiddenInput = document.getElementById('category-select');
-            const labelEl = document.getElementById('category-dropdown-label');
-            if (hiddenInput) hiddenInput.value = val;
-            if (labelEl) labelEl.innerText = label;
-            toggleCategoryDropdown();
-            renderTags(true);
-        }
-
-        document.addEventListener('click', (e) => {
-            const wrapper = document.getElementById('category-dropdown-wrapper');
-            const menu = document.getElementById('category-dropdown-menu');
-            const arrow = document.getElementById('category-dropdown-arrow');
-            if (wrapper && !wrapper.contains(e.target)) {
-                if (menu) menu.classList.add('hidden');
-                if (arrow) arrow.classList.remove('rotate-180');
+                console.error('Fetch tags error:', err);
             }
         });
 
-        function hasValidImage(product) {
-            const img = String(product.img || '').trim();
-            return img !== '' && !img.includes('placeholder.jpg') && !img.startsWith('data:image/svg+xml');
+        function populateCategoryDropdown() {
+            const select = document.getElementById('category-filter');
+            if (!select || !Array.isArray(categories)) return;
+
+            categories.forEach(c => {
+                if (c.key_name !== 'no_barcode') {
+                    const opt = document.createElement('option');
+                    opt.value = c.key_name;
+                    opt.textContent = c.label_name;
+                    select.appendChild(opt);
+                }
+            });
         }
 
-        function getFormattedImgSrc(rawImg) {
-            const isInvalidImg = !rawImg || String(rawImg).trim() === '' || String(rawImg).includes('placeholder.jpg');
-            if (isInvalidImg) return window.placeholderSVG;
-            if (rawImg.startsWith('images/') || rawImg.startsWith('/images/') || rawImg.startsWith('http') || rawImg.startsWith('data:')) {
-                return rawImg;
-            }
+        function getImgUrl(rawImg) {
+            if (!rawImg || rawImg.includes('placeholder.jpg')) return window.placeholderSVG;
+            if (rawImg.startsWith('http') || rawImg.startsWith('data:') || rawImg.startsWith('images/')) return rawImg;
             return `images/${rawImg}`;
-        }
-
-        function toggleSelectAll() {
-            const currentList = getFilteredProducts();
-            const allSelected = currentList.every(p => selectedIds.has(String(p.id).trim()));
-
-            currentList.forEach(p => {
-                const id = String(p.id).trim();
-                if (allSelected) selectedIds.delete(id);
-                else selectedIds.add(id);
-            });
-
-            renderTags(false);
-        }
-
-        function toggleCard(id) {
-            const cleanId = String(id).trim();
-            if (selectedIds.has(cleanId)) selectedIds.delete(cleanId);
-            else selectedIds.add(cleanId);
-            renderTags(false);
         }
 
         function getFilteredProducts() {
             const keyword = document.getElementById('search-input')?.value.trim().toLowerCase() || '';
-            const selectedCat = document.getElementById('category-select')?.value || 'all';
-            const onlyHasImg = document.getElementById('only-has-image')?.checked;
+            const cat = document.getElementById('category-filter')?.value || 'all';
 
             return allProducts.filter(p => {
-                if (onlyHasImg && !hasValidImage(p)) return false;
-
-                if (selectedCat === 'no_barcode') {
+                if (cat === 'no_barcode') {
                     if (!(p.is_no_barcode == 1 || p.is_no_barcode === '1' || p.is_no_barcode === true)) return false;
-                } else if (selectedCat !== 'all') {
-                    if (p.category !== selectedCat) return false;
+                } else if (cat !== 'all') {
+                    if (p.category !== cat) return false;
                 }
 
                 if (keyword) {
@@ -419,324 +321,314 @@
             });
         }
 
-        function renderTags(resetLimit = true) {
-            if (resetLimit) visibleProductLimit = 40;
-
-            const container = document.getElementById('print-area');
-            currentFilteredProducts = getFilteredProducts();
-            const selectedCountEl = document.getElementById('selected-count');
-
-            const activeSelectedCount = allProducts.filter(p => selectedIds.has(String(p.id).trim()) && getFilteredProducts().some(fp => String(fp.id).trim() === String(p.id).trim())).length;
-            if (selectedCountEl) selectedCountEl.innerText = activeSelectedCount;
+        function renderProductSelection() {
+            const container = document.getElementById('product-selection-grid');
             if (!container) return;
 
-            if (currentFilteredProducts.length === 0) {
-                container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-400 text-sm font-semibold">ไม่พบรายการสินค้า</div>`;
+            const products = getFilteredProducts();
+            updateTotalSelectedBadge();
+
+            if (products.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-400 font-bold text-sm">ไม่พบรายการสินค้า</div>`;
                 return;
             }
 
-            const paginated = currentFilteredProducts.slice(0, visibleProductLimit);
-
-            container.innerHTML = paginated.map(item => {
-                const safeId = String(item.id).trim().replace(/'/g, "\\'");
-                const isSelected = selectedIds.has(String(item.id).trim());
-                const imgSrc = getFormattedImgSrc(item.img);
-                const priceNum = parseFloat(item.price) || 0;
-                const priceFormatted = priceNum.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            container.innerHTML = products.map(item => {
+                const id = String(item.id).trim();
+                const isSelected = selectedProductIds.has(id);
+                const imgSrc = getImgUrl(item.img);
+                const price = parseFloat(item.price || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
                 return `
-                    <div onclick="toggleCard('${safeId}')" 
-                         class="bg-white p-3.5 rounded-2xl border-2 ${isSelected ? 'border-blue-600 shadow-sm' : 'border-slate-200 bg-slate-50/60'} transition flex flex-col justify-between items-center text-center relative cursor-pointer select-none h-full">
+                    <div onclick="toggleSelectProduct('${id}')" 
+                         class="bg-white p-3 rounded-2xl border-2 ${isSelected ? 'border-blue-600 shadow-sm' : 'border-slate-200/80 bg-slate-50/40'} transition flex flex-col justify-between items-center text-center relative cursor-pointer select-none">
                         
-                        <div class="no-print absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition ${isSelected ? 'bg-blue-600 text-white shadow-xs' : 'border-2 border-slate-300 bg-white'}">
+                        <div class="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition ${isSelected ? 'bg-blue-600 text-white shadow-xs' : 'border-2 border-slate-300 bg-white'}">
                             ${isSelected ? `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>` : ''}
                         </div>
 
-                        <div class="w-full h-20 sm:h-24 flex items-center justify-center p-1 my-1">
-                            <img src="${imgSrc}" alt="${item.name}" loading="lazy" class="w-full h-full object-contain" onerror="this.onerror=null; this.src=window.placeholderSVG;">
+                        <div class="w-full h-16 sm:h-20 flex items-center justify-center p-1 my-1">
+                            <img src="${imgSrc}" class="w-full h-full object-contain" onerror="this.src=window.placeholderSVG">
                         </div>
 
-                        <div class="w-full">
-                            <p class="text-xs font-bold text-slate-800 line-clamp-2 w-full px-1 min-h-[34px] flex items-center justify-center leading-snug" title="${item.name}">
-                                ${item.name}
-                            </p>
-                        </div>
-
-                        <div class="tag-barcode-box w-full flex flex-col items-center justify-center my-1 min-h-[46px]">
-                            <svg id="barcode-${safeId}" class="max-w-full"></svg>
-                        </div>
-
-                        <div class="w-full pt-1.5 border-t border-slate-100 flex items-center justify-center mt-auto">
-                            <span class="text-xl font-black text-slate-900 tracking-tight leading-none">฿${priceFormatted}</span>
+                        <p class="text-xs font-bold text-slate-800 line-clamp-2 leading-snug w-full min-h-[32px] flex items-center justify-center" title="${item.name}">
+                            ${item.name}
+                        </p>
+                        <p class="text-[10px] text-slate-400 font-mono mt-0.5 leading-none">${item.id || ''}</p>
+                        
+                        <div class="w-full pt-1.5 border-t border-slate-100 flex items-center justify-center mt-2">
+                            <span class="text-sm sm:text-base font-black text-slate-900">฿${price}</span>
                         </div>
                     </div>
                 `;
             }).join('');
-
-            paginated.forEach(item => {
-                const cleanId = String(item.id).trim();
-                const svgSelector = `#barcode-${cleanId.replace(/'/g, "\\'")}`;
-                const isEAN13 = /^\d{13}$/.test(cleanId);
-                const format = isEAN13 ? "EAN13" : "CODE128";
-
-                try {
-                    JsBarcode(svgSelector, cleanId, {
-                        format: format,
-                        width: 1.4,
-                        height: 38,
-                        fontSize: 11,
-                        margin: 4,
-                        displayValue: true
-                    });
-                } catch (e) {
-                    try {
-                        JsBarcode(svgSelector, cleanId, {
-                            format: "CODE128",
-                            width: 1.3,
-                            height: 38,
-                            fontSize: 11,
-                            margin: 4,
-                            displayValue: true
-                        });
-                    } catch (err) {}
-                }
-            });
         }
 
-        function handlePrintAction() {
-            const selectedProducts = currentFilteredProducts.filter(p => selectedIds.has(String(p.id).trim()));
+        function toggleSelectProduct(id) {
+            if (selectedProductIds.has(id)) selectedProductIds.delete(id);
+            else selectedProductIds.add(id);
+            renderProductSelection();
+        }
 
-            if (selectedProducts.length === 0) {
-                alert('กรุณาเลือกป้ายสินค้าอย่างน้อย 1 รายการก่อนดูตัวอย่างพิมพ์');
+        function selectAllFiltered(shouldSelect) {
+            const list = getFilteredProducts();
+            list.forEach(p => {
+                const id = String(p.id).trim();
+                if (shouldSelect) selectedProductIds.add(id);
+                else selectedProductIds.delete(id);
+            });
+            renderProductSelection();
+        }
+
+        function updateTotalSelectedBadge() {
+            const countEl = document.getElementById('selected-count');
+            if (countEl) countEl.innerText = selectedProductIds.size;
+        }
+
+        function openPrintPreviewModal() {
+            const modal = document.getElementById('print-preview-modal');
+            if (!modal) return;
+
+            if (selectedProductIds.size === 0) {
+                alert('กรุณาคลิกเลือกป้ายสินค้าที่ต้องการพิมพ์อย่างน้อย 1 รายการ');
                 return;
             }
 
-            document.body.classList.add('overflow-hidden');
-
-            const modal = document.getElementById('print-preview-modal');
-            const container = document.getElementById('preview-sheets-container');
-            const pageInfo = document.getElementById('preview-page-info');
-
-            const showImg = document.getElementById('chk-opt-img')?.checked ?? true;
-            const showBarcode = document.getElementById('chk-opt-barcode')?.checked ?? true;
-            const showPrice = document.getElementById('chk-opt-price')?.checked ?? true;
-
-            const itemsPerPage = showImg ? 12 : 21;
-            const gridClass = showImg ? 'preview-grid-12' : 'preview-grid-compact';
-            const totalItems = selectedProducts.length;
-            const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-            pageInfo.innerText = `ทั้งหมด ${totalItems} ป้าย (${totalPages} แผ่น A4)`;
-            container.innerHTML = '';
-
-            for (let page = 0; page < totalPages; page++) {
-                const pageItems = selectedProducts.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
-                const sheet = document.createElement('div');
-                sheet.className = 'preview-a4-sheet';
-
-                sheet.innerHTML = `
-                    <div class="print-header-info flex items-center justify-between pb-1 mb-1 border-b border-slate-200 text-[11px] font-bold text-slate-400 flex-shrink-0">
-                        <span>📄 แผ่นที่ ${page + 1} จาก ${totalPages}</span>
-                        <span>ขนาด A4 แนวตั้ง (${showImg ? '12 ป้าย/แผ่น' : '21 ป้าย/แผ่น'})</span>
-                    </div>
-                    <div class="${gridClass}">
-                        ${pageItems.map(item => {
-                            const imgSrc = getFormattedImgSrc(item.img);
-                            const priceNum = parseFloat(item.price) || 0;
-                            const priceFormatted = priceNum.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-                            if (!showImg) {
-                                return `
-                                    <div class="preview-tag-card-compact">
-                                        <p class="text-xs font-bold text-slate-800 line-clamp-1 w-full text-center" style="line-height: 1.6; padding-top: 4px;">${item.name}</p>${showBarcode ? `
-                                            <div class="w-full flex items-center justify-center my-1">
-                                                <svg id="preview-bc-${item.id}" class="max-w-full"></svg>
-                                            </div>
-                                        ` : ''}
-                                        ${showPrice ? `
-                                            <div class="w-full flex items-center justify-center">
-                                                <span class="text-base font-black text-slate-900 leading-none">฿${priceFormatted}</span>
-                                            </div>
-                                        ` : ''}
-                                    </div>
-                                `;
-                            } else {
-                                return `
-                                    <div class="preview-tag-card">
-                                        <div class="h-16 w-full flex items-center justify-center">
-                                            <img src="${imgSrc}" class="h-full object-contain" onerror="this.onerror=null; this.src=window.placeholderSVG;">
-                                        </div>
-                                        <p class="text-xs font-bold text-slate-800 line-clamp-1 w-full text-center" style="line-height: 1.6; padding-top: 4px;" title="${item.name}">${item.name}</p>${showBarcode ? `
-                                            <div class="w-full flex items-center justify-center my-1">
-                                                <svg id="preview-bc-${item.id}" class="max-w-full"></svg>
-                                            </div>
-                                        ` : ''}
-                                        ${showPrice ? `
-                                            <div class="w-full pt-1 flex items-center justify-center">
-                                                <span class="text-base font-black text-slate-900 leading-none">฿${priceFormatted}</span>
-                                            </div>
-                                        ` : ''}
-                                    </div>
-                                `;
-                            }
-                        }).join('')}
-                    </div>
-                `;
-
-                container.appendChild(sheet);
-
-                if (showBarcode) {
-                    pageItems.forEach(item => {
-                        const cleanId = String(item.id || '').trim();
-                        const svgSel = `#preview-bc-${cleanId}`;
-                        const isEAN13 = /^\d{13}$/.test(cleanId);
-
-                        let rendered = false;
-                        if (isEAN13) {
-                            try {
-                                JsBarcode(svgSel, cleanId, {
-                                    format: "EAN13",
-                                    width: showImg ? 1.2 : 1.3,
-                                    height: showImg ? 30 : 28,
-                                    fontSize: 10,
-                                    margin: 1,
-                                    displayValue: true
-                                });
-                                rendered = true;
-                            } catch (e) {
-                                rendered = false;
-                            }
-                        }
-
-                        if (!rendered) {
-                            try {
-                                JsBarcode(svgSel, cleanId, {
-                                    format: "CODE128",
-                                    width: showImg ? 1.1 : 1.2,
-                                    height: showImg ? 30 : 28,
-                                    fontSize: 10,
-                                    margin: 1,
-                                    displayValue: true
-                                });
-                            } catch (err) {}
-                        }
-                    });
-                }
-            }
-
             modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            
+            const rangeInput = document.getElementById('print-page-range');
+            if (rangeInput) rangeInput.value = 'ทั้งหมด';
+
+            buildPreviewSheets();
         }
 
-        function updateTagElements() {
-            handlePrintAction();
-        }
-
-        function closePrintPreview() {
+        function closePrintPreviewModal() {
             const modal = document.getElementById('print-preview-modal');
             if (modal) modal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden', 'hide-img', 'hide-barcode', 'hide-price', 'print-bw');
+            document.body.classList.remove('overflow-hidden');
         }
 
-        function filterPreviewPages() {
-            const rangeInput = document.getElementById('print-page-range').value.trim().toLowerCase();
+        function setTagLayout(layoutNum) {
+            currentTagLayout = layoutNum;
+            const btn12 = document.getElementById('opt-layout-12');
+            const btn32 = document.getElementById('opt-layout-32');
+
+            if (layoutNum === 12) {
+                btn12.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white transition cursor-pointer';
+                btn32.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
+            } else {
+                btn32.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white transition cursor-pointer';
+                btn12.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
+            }
+            buildPreviewSheets();
+        }
+
+        function setPrintColor(isColor) {
+            isColorPrint = isColor;
+            const btnColor = document.getElementById('opt-color-btn');
+            const btnBw = document.getElementById('opt-bw-btn');
+            const container = document.getElementById('preview-sheets-container');
+
+            if (isColor) {
+                btnColor.className = 'px-2.5 py-1 rounded-lg bg-slate-900 text-white transition cursor-pointer';
+                btnBw.className = 'px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
+                container?.classList.remove('print-bw-filter');
+            } else {
+                btnBw.className = 'px-2.5 py-1 rounded-lg bg-slate-900 text-white transition cursor-pointer';
+                btnColor.className = 'px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
+                container?.classList.add('print-bw-filter');
+            }
+        }
+
+        function buildPreviewSheets() {
+            const container = document.getElementById('preview-sheets-container');
+            const summaryText = document.getElementById('preview-summary-text');
+            if (!container) return;
+
+            const selectedItems = allProducts.filter(p => selectedProductIds.has(String(p.id).trim()));
+            const showPrice = document.getElementById('chk-show-price')?.checked ?? true;
+            const itemsPerPage = currentTagLayout;
+            const totalPages = Math.ceil(selectedItems.length / itemsPerPage);
+
+            summaryText.innerText = `ทั้งหมด ${selectedItems.length} ป้าย (${totalPages} แผ่น A4)`;
+
+            let sheetsHtml = '';
+
+            for (let page = 0; page < totalPages; page++) {
+                const pageItems = selectedItems.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+                const gridClass = currentTagLayout === 12 ? 'grid-12-layout' : 'grid-32-layout';
+
+                sheetsHtml += `
+                    <div class="preview-a4-sheet ${isColorPrint ? '' : 'print-bw-filter'}" data-page="${page + 1}">
+                        <div class="print-header-info flex items-center justify-between pb-1 mb-1 border-b border-slate-200 text-[10px] font-bold text-slate-400 flex-shrink-0">
+                            <span>📄 แผ่นที่ ${page + 1} จาก ${totalPages}</span>
+                            <span>ขนาด A4 แนวตั้ง (${currentTagLayout === 12 ? '12 ป้าย/แผ่น' : '32 ป้าย/แผ่น'})</span>
+                        </div>
+                        <div class="${gridClass}">
+                            ${pageItems.map((item, idx) => {
+                                const tagSvgId = `barcode-svg-${page}-${idx}-${item.id}`;
+                                const imgSrc = getImgUrl(item.img);
+                                const priceFormatted = parseFloat(item.price || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+
+                                if (currentTagLayout === 12) {
+                                    return `
+                                        <div class="tag-card-12">
+                                            <div class="h-16 w-full flex items-center justify-center overflow-hidden my-0.5">
+                                                <img src="${imgSrc}" class="h-full object-contain" onerror="this.src=window.placeholderSVG">
+                                            </div>
+                                            <p class="text-xs font-bold text-slate-800 line-clamp-2 leading-snug w-full px-1" title="${item.name}">${item.name}</p>
+                                            <div class="w-full flex items-center justify-center my-0.5">
+                                                <svg id="${tagSvgId}" class="max-w-full"></svg>
+                                            </div>
+                                            ${showPrice ? `<span class="text-base font-black text-slate-900 leading-none pb-0.5">฿${priceFormatted}</span>` : ''}
+                                        </div>
+                                    `;
+                                } else {
+                                    /* 🌟 เรียงลำดับใหม่: 1.ชื่อสินค้า -> 2.ราคาใหญ่เด่นตรงกลาง -> 3.บาร์โค้ดล่างสุด 🌟 */
+                                    return `
+                                        <div class="tag-card-compact">
+                                            <!-- 1. ชื่อสินค้า -->
+                                            <p class="tag-title" title="${item.name}">${item.name}</p>
+                                            
+                                            <!-- 2. ราคาตัวใหญ่ตรงกลาง -->
+                                            ${showPrice ? `
+                                                <div class="price-container">
+                                                    <span class="price-val">฿${priceFormatted}</span>
+                                                </div>
+                                            ` : ''}
+
+                                            <!-- 3. บาร์โค้ดอยู่ล่างสุด -->
+                                            <div class="barcode-wrapper">
+                                                <svg id="${tagSvgId}"></svg>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = sheetsHtml;
+
+            for (let page = 0; page < totalPages; page++) {
+                const pageItems = selectedItems.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+                pageItems.forEach((item, idx) => {
+                    const tagSvgId = `barcode-svg-${page}-${idx}-${item.id}`;
+                    renderBarcodeSvg(tagSvgId, String(item.id || '').trim());
+                });
+            }
+
+            filterPagesByRange();
+        }
+
+        function renderBarcodeSvg(svgId, barcodeStr) {
+            const selector = `#${svgId}`;
+            const isEAN13 = /^\d{13}$/.test(barcodeStr);
+            const format = isEAN13 ? "EAN13" : "CODE128";
+            const heightVal = currentTagLayout === 12 ? 28 : 17;
+            const barWidth = currentTagLayout === 12 ? 1.3 : 1.15;
+
+            try {
+                JsBarcode(selector, barcodeStr, {
+                    format: format,
+                    width: barWidth,
+                    height: heightVal,
+                    fontSize: 8.5,
+                    textMargin: 1.5,
+                    marginBottom: 3,     // 🟢 เว้นที่ใต้ตัวเลข 3px ไม่ให้เลขโดนตัดขอบล่าง
+                    marginTop: 0,
+                    margin: 0,
+                    displayValue: true
+                });
+            } catch (e) {
+                try {
+                    JsBarcode(selector, barcodeStr, {
+                        format: "CODE128",
+                        width: 1.1,
+                        height: heightVal,
+                        fontSize: 8.5,
+                        textMargin: 1.5,
+                        marginBottom: 3, // 🟢 เว้นที่ใต้ตัวเลข 3px ไม่ให้เลขโดนตัดขอบล่าง
+                        marginTop: 0,
+                        margin: 0,
+                        displayValue: true
+                    });
+                } catch (err) {}
+            }
+        }
+
+        function filterPagesByRange() {
+            const inputVal = document.getElementById('print-page-range')?.value.trim().toLowerCase() || '';
             const allSheets = document.querySelectorAll('.preview-a4-sheet');
-            
-            if (rangeInput === 'all' || rangeInput === 'ทั้งหมด' || rangeInput === '') {
+
+            if (!inputVal || inputVal === 'all' || inputVal === 'ทั้งหมด') {
                 allSheets.forEach(sheet => sheet.style.display = 'flex');
                 return;
             }
 
-            const pagesToPrint = new Set();
-            rangeInput.split(',').forEach(part => {
+            const allowedPages = new Set();
+            inputVal.split(',').forEach(part => {
                 part = part.trim();
                 if (part.includes('-')) {
                     const [start, end] = part.split('-').map(Number);
                     for (let i = start; i <= end; i++) {
-                        if (!isNaN(i)) pagesToPrint.add(i);
+                        if (!isNaN(i)) allowedPages.add(i);
                     }
                 } else {
-                    const p = Number(part);
-                    if (!isNaN(p)) pagesToPrint.add(p);
+                    const num = Number(part);
+                    if (!isNaN(num)) allowedPages.add(num);
                 }
             });
 
-            allSheets.forEach((sheet, index) => {
-                const pageNum = index + 1;
-                if (pagesToPrint.has(pageNum)) {
-                    sheet.style.display = 'flex';
-                } else {
-                    sheet.style.display = 'none';
-                }
+            allSheets.forEach(sheet => {
+                const pageNum = Number(sheet.getAttribute('data-page'));
+                if (allowedPages.has(pageNum)) sheet.style.display = 'flex';
+                else sheet.style.display = 'none';
             });
         }
 
-        async function executeFinalPrint() {
-            const btn = document.getElementById('confirm-print-btn');
-            if (!btn || btn.disabled) return;
+        // 🌟 สั่งพิมพ์ผ่าน Electron Print Direct (ไม่เด้งหน้าต่างดำ และไม่หลุดตาราง) 🌟
+        async function executeDirectPrint() {
+            const btn = document.getElementById('btn-execute-print');
+            const previewContainer = document.getElementById('preview-sheets-container');
+            if (!previewContainer) return;
 
-            const originalHtml = btn.innerHTML;
+            const visibleSheets = Array.from(previewContainer.querySelectorAll('.preview-a4-sheet'))
+                                       .filter(s => s.style.display !== 'none');
+
+            if (visibleSheets.length === 0) {
+                alert('ไม่พบหน้าที่ระบุ กรุณาตรวจสอบเลขหน้าใหม่อีกครั้ง');
+                return;
+            }
+
             btn.disabled = true;
             btn.innerHTML = `<span>⏳ กำลังส่งพิมพ์...</span>`;
 
-            const previewContainer = document.getElementById('preview-sheets-container');
-            if (!previewContainer || previewContainer.children.length === 0) {
-                alert('ไม่พบข้อมูลแผ่นกระดาษสำหรับพิมพ์');
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
-                return;
-            }
-
-            const rangeInput = document.getElementById('print-page-range')?.value.trim() || '';
-            const rangeStr = rangeInput.toLowerCase();
-            const allSheets = previewContainer.querySelectorAll('.preview-a4-sheet');
-            let sheetsHtml = '';
-
-            if (rangeStr === 'all' || rangeStr === 'ทั้งหมด' || rangeStr === '') {
-                allSheets.forEach(sheet => sheetsHtml += sheet.outerHTML);
-            } else {
-                const pagesToPrint = new Set();
-                rangeStr.split(',').forEach(part => {
-                    part = part.trim();
-                    if (part.includes('-')) {
-                        const [start, end] = part.split('-').map(Number);
-                        for (let i = start; i <= end; i++) {
-                            if (!isNaN(i)) pagesToPrint.add(i);
-                        }
-                    } else {
-                        const p = Number(part);
-                        if (!isNaN(p)) pagesToPrint.add(p);
-                    }
-                });
-
-                allSheets.forEach((sheet, index) => {
-                    const pageNum = index + 1;
-                    if (pagesToPrint.has(pageNum)) {
-                        sheetsHtml += sheet.outerHTML;
-                    }
-                });
-            }
-
-            if (!sheetsHtml) {
-                alert('ไม่พบหน้าที่ระบุ กรุณาตรวจสอบเลขหน้าใหม่อีกครั้ง (เช่น 1 หรือ 1-2)');
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
-                return;
-            }
-            // 🟢 แปลงรูปภาพทั้งหมดในหน้าพรีวิวให้เป็น URL แบบสมบูรณ์ (Absolute URL) เพื่อให้ตอนพิมพ์ภาพไม่หาย
+            // ดึง HTML แผ่นที่เลือก พร้อมแปลงพาธรูปภาพ
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = sheetsHtml;
+            visibleSheets.forEach(sheet => tempDiv.appendChild(sheet.cloneNode(true)));
+
             tempDiv.querySelectorAll('img').forEach(img => {
                 const src = img.getAttribute('src');
                 if (src && !src.startsWith('http') && !src.startsWith('data:')) {
                     img.src = `${window.location.origin}/${src.replace(/^\//, '')}`;
                 }
             });
-            const processedSheetsHtml = tempDiv.innerHTML;
-            const fullPrintHtml = `
+
+            const sheetsContent = tempDiv.innerHTML;
+
+            // ประกอบ HTML เอกสารพิมพ์ตรง (Self-contained CSS ป้องกันสไตล์หลุด)
+            const printDocumentHtml = `
                 <!DOCTYPE html>
                 <html lang="th">
                 <head>
                     <meta charset="UTF-8">
+                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
                     <style>
                         *, body { font-family: 'Sarabun', 'Inter', sans-serif !important; box-sizing: border-box; }
                         body { background: white !important; margin: 0; padding: 0; color: #1e293b; }
@@ -744,122 +636,139 @@
                         .preview-a4-sheet {
                             width: 210mm !important;
                             height: 297mm !important;
-                            max-width: none !important;
-                            box-shadow: none !important;
-                            border: none !important;
-                            padding: 10mm 10mm 15mm 10mm !important;
+                            padding: 14mm 8mm 10mm 8mm !important;
                             margin: 0 auto !important;
-                            page-break-after: always;
+                            page-break-after: always !important;
+                            break-after: page !important;
                             display: flex;
                             flex-direction: column;
                             box-sizing: border-box;
                             overflow: hidden;
                         }
-                        .flex { display: flex; }
-                        .items-center { align-items: center; }
-                        .justify-between { justify-content: space-between; }
-                        .justify-center { justify-content: center; }
-                        .flex-col { flex-direction: column; }
-                        .text-center { text-align: center; }
-                        .font-bold { font-weight: bold; }
-                        .font-black { font-weight: 900; }
-                        .text-xs { font-size: 11px; }
-                        .text-sm { font-size: 14px; }
-                        .text-base { font-size: 15px; }
-                        .text-slate-800 { color: #1e293b; }
-                        .text-slate-900 { color: #0f172a; }
-                        
-                        .preview-grid-12 {
-                            display: grid;
-                            grid-template-columns: repeat(3, 1fr);
-                            gap: 8px;
-                            margin-top: 6px;
+                        .grid-12-layout {
+                            display: grid !important;
+                            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                            grid-template-rows: repeat(4, minmax(0, 1fr)) !important;
+                            gap: 3.5mm !important;
+                            height: 100% !important;
+                            width: 100% !important;
                         }
-                        .preview-grid-compact {
-                            display: grid;
-                            grid-template-columns: repeat(3, 1fr);
-                            grid-template-rows: repeat(7, 1fr);
-                            gap: 8px;
-                            flex: 1;
-                            margin-top: 6px;
-                            height: 100%;
+                        .grid-32-layout {
+                            display: grid !important;
+                            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+                            grid-template-rows: repeat(8, minmax(0, 1fr)) !important;
+                            gap: 2.5mm !important;
+                            height: 100% !important;
+                            width: 100% !important;
                         }
-                        .preview-tag-card, .preview-tag-card-compact {
-                            border: 1.5px dashed #64748b;
-                            border-radius: 8px;
-                            padding: 10px 8px;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: space-between;
-                            text-align: center;
-                            background: white;
+                        .tag-card-12 {
+                            border: 1px dashed #475569 !important;
+                            border-radius: 6px !important;
+                            padding: 2mm !important;
+                            display: flex !important;
+                            flex-direction: column !important;
+                            align-items: center !important;
+                            justify-content: space-between !important;
+                            text-align: center !important;
+                            background: white !important;
+                            height: 100% !important;
+                            overflow: hidden !important;
                         }
-                        .preview-tag-card-compact p, .preview-tag-card p {
-                            line-height: 1.6 !important;
-                            padding-top: 4px !important;
+                        .tag-card-compact {
+                            border: 1px dashed #475569 !important;
+                            border-radius: 5px !important;
+                            padding: 1.5mm 1.5mm 1mm 1.5mm !important;
+                            display: flex !important;
+                            flex-direction: column !important;
+                            align-items: center !important;
+                            justify-content: space-between !important;
+                            text-align: center !important;
+                            background: white !important;
+                            height: 100% !important;
+                            overflow: hidden !important;
                         }
-                        .preview-tag-card-compact { gap: 4px; }
-                        svg { max-width: 100%; height: auto; }
-                        ${isPrintColor ? '' : 'body { filter: grayscale(100%) contrast(130%) !important; }'}
+                        .tag-card-compact .tag-title {
+                            font-size: 9px !important;
+                            font-weight: 700 !important;
+                            line-height: 1.25 !important;
+                            color: #1e293b !important;
+                            margin: 0 !important;
+                            padding-top: 1px !important;
+                            width: 100% !important;
+                            display: -webkit-box !important;
+                            -webkit-line-clamp: 2 !important;
+                            -webkit-box-orient: vertical !important;
+                            overflow: hidden !important;
+                            word-break: break-word !important;
+                            min-height: 22.5px !important;
+                        }
+                        .tag-card-compact .price-container {
+                            display: flex !important;
+                            align-items: baseline !important;
+                            justify-content: center !important;
+                            margin: auto 0 !important;
+                        }
+                        .tag-card-compact .price-val {
+                            font-size: 16px !important;
+                            font-weight: 900 !important;
+                            line-height: 1 !important;
+                            color: #000000 !important;
+                            letter-spacing: -0.5px !important;
+                        }
+                        .tag-card-compact .barcode-wrapper {
+                            width: 100% !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            margin-top: auto !important;
+                        }
+                        .font-bold { font-weight: bold !important; }
+                        .font-black { font-weight: 900 !important; }
+                        .text-xs { font-size: 11px !important; }
+                        .text-sm { font-size: 13px !important; }
+                        .text-base { font-size: 15px !important; }
+                        .w-full { width: 100% !important; }
+                        .h-full { height: 100% !important; }
+                        .h-16 { height: 60px !important; }
+                        .flex { display: flex !important; }
+                        .items-center { align-items: center !important; }
+                        .justify-center { justify-content: center !important; }
+                        svg { max-width: 100% !important; height: auto !important; }
+                        ${isColorPrint ? '' : 'body { filter: grayscale(100%) contrast(140%) !important; }'}
                     </style>
                 </head>
                 <body>
-                    ${processedSheetsHtml}
+                    ${sheetsContent}
                 </body>
                 </html>
             `;
 
-            closePrintPreview();
-            await new Promise(r => setTimeout(r, 150));
-
-            try {
-                const api = window.electronAPI || (window.parent && window.parent.electronAPI);
-                if (api && typeof api.printTagsDirect === 'function') {
-                    const timeoutPromise = new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('หมดเวลาเชื่อมต่อเครื่องพิมพ์ (Printer Timeout)')), 10000)
-                    );
-
-                    const printPromise = api.printTagsDirect({
-                        htmlContent: fullPrintHtml,
-                        isColor: isPrintColor
+            const api = window.electronAPI || (window.parent && window.parent.electronAPI);
+            if (api && typeof api.printTagsDirect === 'function') {
+                try {
+                    const res = await api.printTagsDirect({
+                        htmlContent: printDocumentHtml,
+                        isColor: isColorPrint
                     });
 
-                    const res = await Promise.race([printPromise, timeoutPromise]);
-
                     btn.disabled = false;
-                    btn.innerHTML = originalHtml;
+                    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg><span>สั่งพิมพ์ทันที (Print)</span>`;
 
-                    if (!res || !res.success) {
-                        alert('การพิมพ์ขัดข้อง: ' + (res?.errorType || 'ตรวจสอบสถานะเครื่องพิมพ์'));
+                    if (res && res.success) {
+                        closePrintPreviewModal();
+                    } else {
+                        alert('การพิมพ์ขัดข้อง: ' + (res?.errorType || 'ตรวจสอบเครื่องพิมพ์'));
                     }
-                } else {
-                    window.print();
-                    closePrintPreview();
+                } catch (err) {
                     btn.disabled = false;
-                    btn.innerHTML = originalHtml;
+                    btn.innerHTML = `<span>สั่งพิมพ์ทันที (Print)</span>`;
+                    alert('ส่งคำสั่งพิมพ์ไม่สำเร็จ: ' + err.message);
                 }
-            } catch (err) {
-                console.error('Print Execution Error:', err);
-                closePrintPreview();
+            } else {
+                window.print();
                 btn.disabled = false;
-                btn.innerHTML = originalHtml;
-                alert('เกิดข้อผิดพลาดในการสั่งพิมพ์: ' + err.message);
+                btn.innerHTML = `<span>สั่งพิมพ์ทันที (Print)</span>`;
             }
-        }
-
-        window.addEventListener('beforeprint', () => {
-            visibleProductLimit = currentFilteredProducts.length;
-            renderTags(false);
-        });
-
-        window.addEventListener('afterprint', () => {
-            visibleProductLimit = 40;
-            renderTags(false);
-        });
-
-        function openExternalBrowser() {
-            window.open(`${window.location.origin}/print_tags.html`, '_blank');
         }
 
         function smartGoBack() {
@@ -868,35 +777,6 @@
             } else {
                 window.location.href = 'index.html';
             }
-        }
-
-        let isPrintColor = true;
-
-        function setPrintColorMode(isColor) {
-            isPrintColor = isColor;
-            const modal = document.getElementById('print-preview-modal');
-            const btnColor = document.getElementById('mode-btn-color');
-            const btnBw = document.getElementById('mode-btn-bw');
-
-            if (modal) modal.classList.toggle('print-bw', !isColor);
-
-            if (isColor) {
-                btnColor.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white shadow-2xs transition cursor-pointer';
-                btnBw.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
-            } else {
-                btnBw.className = 'px-3 py-1 rounded-lg bg-slate-900 text-white shadow-2xs transition cursor-pointer';
-                btnColor.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer';
-            }
-        }
-
-        function handleImageCheckboxChange() {
-            setTimeout(() => {
-                renderTags(true); 
-                const modal = document.getElementById('print-preview-modal');
-                if (modal && !modal.classList.contains('hidden')) {
-                    handlePrintAction();
-                }
-            }, 10);
         }
     </script>
 </body>

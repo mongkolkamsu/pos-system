@@ -688,7 +688,10 @@ function renderProductsHTML(productList) {
                     <img src="${imgSrc}" alt="${rawName}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition duration-200" onerror="this.onerror=null; this.src=window.placeholderSVG;">
                 </div>
                 
-                <h3 class="text-xs font-bold text-slate-800 line-clamp-1 w-full mt-1" title="${rawName}">${rawName}</h3>
+                <!-- 🌟 ปรับเป็น line-clamp-2 และใส่ min-h เพื่อให้การ์ด 1 บรรทัดและ 2 บรรทัดสูงเท่ากันเสมอกัน 🌟 -->
+                <h3 class="text-xs font-bold text-slate-800 line-clamp-2 w-full mt-1 min-h-[2rem] sm:min-h-[2.25rem] flex items-center justify-center leading-snug" title="${rawName}">
+                    ${rawName}
+                </h3>
                 <p class="text-[10px] text-slate-400 font-mono leading-none mt-0.5">${item.id || ''}</p>
                 
                 <div class="my-1">

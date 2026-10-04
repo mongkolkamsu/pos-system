@@ -239,10 +239,10 @@ function renderCart() {
                     ${index + 1}
                 </td>
                 
-                <!-- 🌟 เพิ่ม select-text และ cursor-text ให้กดค้างและลากคัดลอกได้ 🌟 -->
-                <td class="py-3 px-3.5 align-middle select-text">
-                    <p class="font-bold text-slate-800 text-xs sm:text-sm line-clamp-1 leading-snug select-text cursor-text">${item.name}</p>
-                    <p class="text-[11px] text-slate-400 font-medium mt-0.5 select-text cursor-text">${item.id}</p>
+                <!-- 🌟 แสดงชื่อเต็มทั้งหมด จะยาวกี่บรรทัดก็แสดงครบ ไม่ตัดคำ และบาร์โค้ดอยู่ด้านล่างไม่ทับกัน 🌟 -->
+                <td class="py-2.5 px-3.5 align-middle select-text min-w-0">
+                    <p class="font-bold text-slate-800 text-xs sm:text-sm leading-snug break-words whitespace-normal select-text cursor-text mb-1" title="${item.name}">${item.name}</p>
+                    <p class="text-[10px] text-slate-400 font-medium leading-none select-text cursor-text">${item.id}</p>
                 </td>
                 
                 <td class="py-3 px-3.5 text-center align-middle whitespace-nowrap ">
