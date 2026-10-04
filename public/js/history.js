@@ -5,11 +5,17 @@ let customStartDate = null;
 let customEndDate = null;
 let customLabelText = '';
 let searchKeyword = '';
-let currentHistoryPage = 1; // ⭐️ ตัวแปรเก็บหน้าปัจจุบัน
-const HISTORY_ITEMS_PER_PAGE = 20; // ⭐️ กำหนดแสดงหน้าละ 20 รายการ
+let currentHistoryPage = 1;
+const HISTORY_ITEMS_PER_PAGE = 20;
+
+// ⚡ 1. แคชข้อมูลประวัติในแรม เพื่อไม่ต้องยิงขอเซิร์ฟเวอร์ซ้ำๆ
+let cachedSalesHistory = null;
+let historySearchDebounceTimer = null;
+let currentEditingBill = null;
 
 document.addEventListener("DOMContentLoaded", () => {
-    loadAndRenderHistory();
+    // โหลดครั้งแรกให้ดึงจากเซิร์ฟเวอร์ (forceReload = true)
+    loadAndRenderHistory(true);
 
     const dateInput = document.getElementById('custom-date-picker');
     if (dateInput) {
@@ -18,20 +24,29 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // ⚡ 2. ใส่ Debounce ให้ช่องค้นหา ไม่ยิงถี่จนคอมค้าง
     const searchInput = document.getElementById('search-history');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-            searchKeyword = e.target.value.toLowerCase().trim();
-            currentHistoryPage = 1; // รีเซ็ตกลับหน้า 1 เมื่อค้นหา
-            loadAndRenderHistory();
+            clearTimeout(historySearchDebounceTimer);
+            historySearchDebounceTimer = setTimeout(() => {
+                searchKeyword = e.target.value.toLowerCase().trim();
+                currentHistoryPage = 1;
+                loadAndRenderHistory(false); // กรองจากแคชทันที
+            }, 150);
         });
     }
 });
 
-async function getSalesHistory() {
+// ฟังก์ชันดึงประวัติการขาย (ดึงจากแคช หรือดึงใหม่จากเซิร์ฟเวอร์)
+async function getSalesHistory(forceReload = false) {
+    if (!forceReload && cachedSalesHistory !== null) {
+        return cachedSalesHistory;
+    }
     try {
         const response = await fetch('/api/sales/history');
-        return await response.json();
+        cachedSalesHistory = await response.json();
+        return cachedSalesHistory;
     } catch (error) {
         console.error('Fetch History Error:', error);
         return [];
@@ -40,7 +55,7 @@ async function getSalesHistory() {
 
 function switchHistoryView(mode) {
     currentViewMode = mode;
-    currentHistoryPage = 1; // รีเซ็ตหน้าเมื่อเปลี่ยนมุมมอง
+    currentHistoryPage = 1;
     const tabBills = document.getElementById('view-tab-bills');
     const tabItems = document.getElementById('view-tab-items');
     const payFilters = document.getElementById('payment-filters-container');
@@ -55,7 +70,7 @@ function switchHistoryView(mode) {
         if (payFilters) payFilters.classList.add('hidden');
     }
 
-    loadAndRenderHistory();
+    loadAndRenderHistory(false); // ⚡ กรองจากแคชทันที
 }
 
 function setFilter(filterType, btnElement) {
@@ -74,7 +89,7 @@ function setFilter(filterType, btnElement) {
         btnElement.className = "filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-blue-600 shadow-2xs transition cursor-pointer";
     }
 
-    loadAndRenderHistory();
+    loadAndRenderHistory(false); // ⚡ กรองจากแคชทันที
 }
 
 function setPaymentFilter(method, btnElement) {
@@ -96,7 +111,7 @@ function setPaymentFilter(method, btnElement) {
         btnElement.className = `pay-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold ${activeStyles[method]} transition flex items-center gap-1.5 cursor-pointer`;
     }
 
-    loadAndRenderHistory();
+    loadAndRenderHistory(false); // ⚡ กรองจากแคชทันที
 }
 
 const thaiMonthNamesList = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
@@ -156,7 +171,7 @@ function parseAndFilterCustomCalendar(val) {
         }
     }
 
-    loadAndRenderHistory();
+    loadAndRenderHistory(false); // ⚡ กรองจากแคชทันที
 }
 
 function filterTransactions(transactions) {
@@ -237,8 +252,8 @@ function updateDateRangeDisplay() {
     labelEl.innerHTML = `<span>${textStr}</span>`;
 }
 
-async function loadAndRenderHistory() {
-    const allHistory = await getSalesHistory();
+async function loadAndRenderHistory(forceReload = false) {
+    const allHistory = await getSalesHistory(forceReload);
     const filteredHistory = filterTransactions(allHistory);
 
     updateDateRangeDisplay();
@@ -343,7 +358,6 @@ function renderBillsTable(historyList) {
         return;
     }
 
-    // ⭐️ คำนวณระบบแบ่งหน้า (Pagination) ⭐️
     const totalPages = Math.ceil(historyList.length / HISTORY_ITEMS_PER_PAGE);
     if (currentHistoryPage > totalPages) currentHistoryPage = totalPages || 1;
     const startIndex = (currentHistoryPage - 1) * HISTORY_ITEMS_PER_PAGE;
@@ -445,7 +459,6 @@ function renderBillsTable(historyList) {
         `;
     }).join('');
 
-    // แถวสรุปยอดรวมท้ายตาราง
     const summaryFooterHtml = `
         <tr class="bg-slate-100/90 font-bold border-t-2 border-slate-200/90 text-slate-800">
             <td colspan="3" class="p-4 text-left font-black text-sm text-slate-700">แสดงหน้า ${currentHistoryPage} จาก ${totalPages || 1} (รวมทั้งหมด ${historyList.length} บิล)</td>
@@ -459,12 +472,9 @@ function renderBillsTable(historyList) {
     `;
 
     tbody.innerHTML = htmlRows + summaryFooterHtml;
-
-    // ⭐️ เพิ่มแถบปุ่มกดเปลี่ยนหน้า (Pagination Bar) ด้านล่างตาราง ⭐️
     renderPaginationBar(totalPages);
 }
 
-// ⭐️ ฟังก์ชันสร้างปุ่มเปลี่ยนหน้า ⭐️
 function renderPaginationBar(totalPages) {
     let paginationContainer = document.getElementById('history-pagination-container');
     if (!paginationContainer) {
@@ -493,13 +503,13 @@ function renderPaginationBar(totalPages) {
     `;
 }
 
+// ⚡ 3. เปลี่ยนหน้าไม่ต้องโหลดจากเซิร์ฟเวอร์
 function changeHistoryPage(page) {
     currentHistoryPage = page;
-    loadAndRenderHistory();
+    loadAndRenderHistory(false);
 }
 
 function renderItemsProfitTable(historyList) {
-    // ซ่อนปุ่มเปลี่ยนหน้าเมื่ออยู่หน้าสรุปกำไรรายสินค้า
     const paginationContainer = document.getElementById('history-pagination-container');
     if (paginationContainer) paginationContainer.innerHTML = '';
 
@@ -591,8 +601,9 @@ function renderItemsProfitTable(historyList) {
 
 // ----------------- หน้าต่างแก้ไขข้อมูลบิล & ยกเลิกบิล -----------------
 
+// ⚡ 4. เปิดหน้าต่างแก้ไขบิลทันทีจากแคช ไม่ต้องรอ fetch ใหม่
 async function openEditBillModal(billId) {
-    const allHistory = await getSalesHistory();
+    const allHistory = await getSalesHistory(false);
     const bill = allHistory.find(b => b.id === billId);
 
     if (!bill) {
@@ -755,6 +766,7 @@ function closeEditBillModal() {
     currentEditingBill = null;
 }
 
+// บันทึกแก้ไขสำเร็จ ให้ forceReload = true เพื่ออัปเดตแคชใหม่
 async function saveEditedBill() {
     if (!currentEditingBill || currentEditingBill.items.length === 0) {
         await showCustomModal('warning', 'ไม่มีรายการสินค้า', 'บิลต้องมีสินค้าอย่างน้อย 1 รายการ');
@@ -790,7 +802,7 @@ async function saveEditedBill() {
         if (res.success) {
             closeEditBillModal();
             await showCustomModal('success', 'แก้ไขสำเร็จ!', `บันทึกการแก้ไขบิลเรียบร้อยแล้ว`);
-            loadAndRenderHistory();
+            loadAndRenderHistory(true); // ⚡ ดึงข้อมูลใหม่หลังจากบันทึก
         } else {
             await showCustomModal('warning', 'เกิดข้อผิดพลาด', res.message || 'ไม่สามารถบันทึกการแก้ไขได้');
         }
@@ -799,6 +811,7 @@ async function saveEditedBill() {
     }
 }
 
+// ยกเลิกบิลสำเร็จ ให้ forceReload = true เพื่ออัปเดตแคชใหม่
 async function confirmCancelBill(billId) {
     const isConfirmed = await showCustomModal(
         'confirm',
@@ -818,7 +831,7 @@ async function confirmCancelBill(billId) {
 
         if (result.success) {
             await showCustomModal('success', 'ยกเลิกบิลเรียบร้อย!', `ลบบิล ${billId} เรียบร้อยแล้ว`);
-            loadAndRenderHistory();
+            loadAndRenderHistory(true); // ⚡ ดึงข้อมูลใหม่หลังจากยกเลิก
         } else {
             await showCustomModal('warning', 'เกิดข้อผิดพลาด', result.message || 'ไม่สามารถยกเลิกบิลได้');
         }

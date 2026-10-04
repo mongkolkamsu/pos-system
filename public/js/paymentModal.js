@@ -222,6 +222,38 @@ function closePaymentModal() {
     if (menu) menu.classList.add('hidden');
 }
 
+// 🌟 ระบบดักจับปุ่ม Enter และ Escape สำหรับหน้าต่างชำระเงินทุกแท็บ 🌟
+document.addEventListener('keydown', (e) => {
+    const modal = document.getElementById('payment-modal');
+    // ถ้าหน้าต่างชำระเงินไม่ได้เปิดอยู่ ให้ข้ามไป
+    if (!modal || modal.classList.contains('hidden')) return;
+
+    // 1. กด Escape เพื่อปิดหน้าต่างชำระเงิน
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        closePaymentModal();
+        return;
+    }
+
+    // 2. กด Enter เพื่อยืนยันการชำระเงิน (ทำงานทุกแท็บ: สแกน/โอน, โครงการรัฐ, ติดเงิน, เงินสด)
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopImmediatePropagation(); // ป้องกันไม่ให้ปุ่มแท็บเดิมหรือโค้ดอื่นแย่ง Event
+
+        // ถ้าอยู่ในแท็บติดเงิน แล้วมีเมนูดรอปดาวน์รายชื่อลูกหนี้เปิดอยู่
+        const menu = document.getElementById('debtor-suggestions-menu');
+        if (menu && !menu.classList.contains('hidden')) {
+            const firstOption = menu.querySelector('#debtor-suggestions-list > div');
+            if (firstOption) {
+                firstOption.dispatchEvent(new MouseEvent('mousedown'));
+                return;
+            }
+        }
+
+        // สั่งยืนยันการชำระเงินทันที
+        confirmPayment();
+    }
+});
 function setPaymentMethod(method) {
     currentPaymentMethod = method;
 
@@ -249,7 +281,10 @@ function setPaymentMethod(method) {
 
     const inactiveClass = 'py-2.5 px-1 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95 text-slate-600 hover:text-slate-900 whitespace-nowrap';
     [tabCash, tabTransfer, tabGov, tabDebt].forEach(tab => {
-        if (tab) tab.className = inactiveClass;
+        if (tab) {
+            tab.className = inactiveClass;
+            tab.blur(); // 🟢 เพิ่มบรรทัดนี้ เพื่อปลดโฟกัสออกจากปุ่มแท็บ
+        }
     });
 
     if (method === 'cash') {
