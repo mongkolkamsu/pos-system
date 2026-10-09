@@ -534,7 +534,10 @@ async function confirmPayment() {
     };
 
     const saleData = {
-        items: cart,
+        items: cart.map(item => ({
+            ...item,
+            is_held_deducted: !!item.isHeldDeducted
+        })),
         total: currentTotalBill,
         received: currentPaymentMethod === 'cash' ? received : (currentPaymentMethod === 'debt' ? 0 : currentTotalBill),
         change: currentPaymentMethod === 'cash' ? Math.max(0, Math.round((received - currentTotalBill) * 100) / 100) : 0,

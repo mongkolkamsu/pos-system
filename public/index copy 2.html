@@ -136,49 +136,6 @@
         .animate-laser {
             animation: scannerLaser 2s infinite ease-in-out;
         }
-        #ios-sidebar .cat-order-num {
-            display: none; /* ซ่อนเลขลำดับตอนกางออก */
-        }
-
-        #ios-sidebar.is-collapsed .cat-full-info {
-            display: none !important; /* ซ่อนชื่อและจำนวนสินค้าตอนพับเก็บ */
-        }
-
-        #ios-sidebar.is-collapsed .cat-order-num {
-            display: flex !important; /* แสดงเลขลำดับตอนพับเก็บ */
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            font-size: 11px;
-            font-weight: 800;
-            border-radius: 10px;
-            margin: 0 auto;
-        }
-
-        #ios-sidebar.is-collapsed .cat-item {
-            justify-content: center !important;
-            padding: 6px 0 !important;
-        }
-
-        #ios-sidebar.is-collapsed .sidebar-label-text {
-            display: none !important;
-        }
-        #ios-sidebar #keyboard-toggle-box {
-            width: 140px; /* ขนาดตอนกาง: พอดีๆ ไม่กว้างเกินไป */
-            transition: all 0.2s ease-in-out;
-        }
-
-        #ios-sidebar.is-collapsed #keyboard-toggle-box {
-            width: 52px; /* ขนาดตอนพับ: หดกลับมาเป็นแคปซูลเล็ก */
-            padding-left: 6px;
-            padding-right: 6px;
-        }
-
-        #ios-sidebar.is-collapsed #keyboard-toggle-text {
-            display: none !important; /* ซ่อนข้อความตอนพับ */
-        }
-        
     </style>
 </head>
 <body class="bg-slate-100 font-sans h-screen overflow-hidden text-slate-800">
@@ -205,10 +162,7 @@
                             <div class="min-w-0 flex-shrink-0">
                                 <div class="flex items-center gap-1.5 sm:gap-2">
                                     <!-- เปลี่ยน leading-none เป็น leading-normal แก้สระจม -->
-                                    <h1 class="text-sm sm:text-lg font-bold text-slate-900 tracking-tight leading-normal truncate">
-                                        <span>รายการสินค้า</span>
-                                        <span id="current-category-title" class="text-blue-600 ml-1">ทั้งหมด</span>
-                                    </h1>
+                                    <h1 class="text-sm sm:text-lg font-bold text-slate-900 tracking-tight leading-normal truncate">รายการสินค้า</h1>
                                     <span id="product-count" class="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/60">
                                     </span>
                                 </div>
@@ -310,7 +264,10 @@
                 </div>
             </div>
 
-            <!-- ตารางแสดงการ์ดสินค้า (ขยายเต็มพื้นที่ ไม่โดนแถบเบียด) -->
+            <!-- แถบหมวดหมู่สินค้า -->
+            <div class="flex items-center gap-1.5 flex-shrink-0 relative z-30 py-1 mb-1" id="category-bar"></div>
+
+            <!-- ตารางแสดงการ์ดสินค้า -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 min-[1800px]:grid-cols-5 min-[2400px]:grid-cols-6 gap-3.5 flex-1 min-h-0 overflow-y-auto pr-1 pb-6 content-start scroll-smooth" id="product-grid"></div>
         </section>
 

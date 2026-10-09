@@ -6,151 +6,110 @@ function initPosSidebar() {
     if (document.getElementById('ios-sidebar')) return;
 
     const sidebarHTML = `
-        <!-- 1. แถบ Sidebar ซ้ายสุด: แถบหมวดหมู่สินค้าที่พับ/กางได้ -->
-        <aside id="ios-sidebar" class="w-48 bg-white border-r border-slate-200/80 flex flex-col py-3.5 flex-shrink-0 z-40 select-none shadow-[2px_0_12px_rgba(0,0,0,0.02)] transition-all duration-200 ease-in-out">
-            
-            <!-- 🌟 ส่วนหัว Sidebar: ปุ่มเมนูระบบหลัก (แทนที่ปุ่มรีเฟรชเดิม) 🌟 -->
-            <div id="sidebar-header-box" class="flex items-center justify-between px-3 mb-2 flex-shrink-0 w-full relative">
-                
-                <!-- 1. ปุ่มเมนูระบบ (Apps / Control Center Icon) -->
-                <div class="relative" id="sidebar-sys-menu-wrapper">
-                    <button type="button" 
-                            onclick="toggleSidebarSysMenu()" 
-                            title="เมนูระบบหลัก" 
-                            class="w-10 h-10 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs hover:border-blue-400 hover:text-blue-600 flex items-center justify-center text-slate-800 transition-all active:scale-90 cursor-pointer">
-                        <!-- ไอคอน 9 จุด สไตล์ App Launcher / System Hub -->
-                        <svg class="w-5 h-5 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                            <circle cx="5" cy="5" r="2" />
-                            <circle cx="12" cy="5" r="2" />
-                            <circle cx="19" cy="5" r="2" />
-                            <circle cx="5" cy="12" r="2" />
-                            <circle cx="12" cy="12" r="2" />
-                            <circle cx="19" cy="12" r="2" />
-                            <circle cx="5" cy="19" r="2" />
-                            <circle cx="12" cy="19" r="2" />
-                            <circle cx="19" cy="19" r="2" />
-                        </svg>
-                    </button>
-                    <!-- ไฟสถานะเขียว -->
-                    <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full pointer-events-none shadow-2xs"></span>
-
-                    <div id="sidebar-sys-dropdown" 
-                         class="hidden absolute left-full top-[-4px] ml-3 w-52 bg-white border border-slate-200/90 rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] z-50 p-2 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150 select-none">
-                        
-                        <!-- 🔻 ติ่งแหลมชี้กลับไปที่ปุ่ม 9 จุด (ชี้ตรงกึ่งกลางปุ่มพอดี) -->
-                        <span class="absolute -left-1.5 top-5 w-3 h-3 bg-white border-l border-t border-slate-200/90 rotate-[-45deg] pointer-events-none"></span>
-
-                        <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1 relative z-10">
-                            เมนูระบบ
-                        </div>
-
-                        <!-- 🔄 รีเฟรชหน้าจอ (ย้ายมาไว้ข้างในนี้) -->
-                        <div onclick="window.location.reload()" 
-                             class="relative z-10 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold cursor-pointer transition flex items-center gap-2.5">
-                            <span class="text-base">🔄</span>
-                            <span>รีเฟรชหน้าจอ</span>
-                        </div>
-
-                        <!-- 👥 ลูกหนี้ -->
-                        <div onclick="openPosDrawer('debts.html', 'สมุดบัญชีลูกหนี้'); toggleSidebarSysMenu(false);" 
-                             class="relative z-10 px-3 py-2 rounded-xl hover:bg-amber-50 text-slate-700 hover:text-amber-600 font-semibold cursor-pointer transition flex items-center gap-2.5">
-                            <span class="text-base">👥</span>
-                            <span>สมุดบัญชีลูกหนี้</span>
-                        </div>
-
-                        <!-- 🕒 ประวัติการขาย -->
-                        <div onclick="openPosDrawer('history.html', 'ประวัติการขาย'); toggleSidebarSysMenu(false);" 
-                             class="relative z-10 px-3 py-2 rounded-xl hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-semibold cursor-pointer transition flex items-center gap-2.5">
-                            <span class="text-base">🕒</span>
-                            <span>ประวัติการขาย</span>
-                        </div>
-
-                        <!-- 📦 ของต้องซื้อ -->
-                        <div onclick="openPosDrawer('low_stock.html', 'ตรวจเช็คของต้องซื้อ'); toggleSidebarSysMenu(false);" 
-                             class="relative z-10 px-3 py-2 rounded-xl hover:bg-rose-50 text-slate-700 hover:text-rose-600 font-semibold cursor-pointer transition flex items-center gap-2.5">
-                            <span class="text-base">📦</span>
-                            <span>ตรวจเช็คของต้องซื้อ</span>
-                        </div>
-
-                        <!-- 🖨️ พิมพ์ป้ายสินค้า -->
-                        <div onclick="openPosDrawer('print_tags.html', 'พิมพ์ป้ายสินค้า & บาร์โค้ด'); toggleSidebarSysMenu(false);" 
-                             class="relative z-10 px-3 py-2 rounded-xl hover:bg-purple-50 text-slate-700 hover:text-purple-600 font-semibold cursor-pointer transition flex items-center gap-2.5">
-                            <span class="text-base">🖨️</span>
-                            <span>พิมพ์ป้ายสินค้า / บาร์โค้ด</span>
-                        </div>
-
-                        <div class="h-px bg-slate-100 my-1 relative z-10"></div>
-
-                        <!-- 📥 รับสต็อกสินค้า -->
-                        <div onclick="if(typeof openStockInModal === 'function') openStockInModal(); toggleSidebarSysMenu(false);" 
-                             class="relative z-10 px-3 py-2 rounded-xl hover:bg-sky-50 text-slate-700 hover:text-sky-600 font-semibold cursor-pointer transition flex items-center gap-2.5">
-                            <span class="text-base">📥</span>
-                            <span>รับสต็อกสินค้า</span>
-                        </div>
-
-                        <!-- 🏷️ จัดการหมวดหมู่ -->
-                        <div onclick="if(typeof openAddCategoryModal === 'function') openAddCategoryModal(); toggleSidebarSysMenu(false);" 
-                             class="relative z-10 px-3 py-2 rounded-xl hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 font-semibold cursor-pointer transition flex items-center gap-2.5">
-                            <span class="text-base">🏷️</span>
-                            <span>จัดการหมวดหมู่</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. ปุ่มลูกศรพับ/กาง Sidebar -->
+        <!-- 1. แถบเมนูไอคอนแนวตั้งซ้ายสุด -->
+        <aside id="ios-sidebar" class="w-18 sm:w-20 bg-white border-r border-slate-200/80 flex flex-col items-center py-4 flex-shrink-0 z-40 select-none shadow-[2px_0_12px_rgba(0,0,0,0.02)]">
+            <div class="relative w-11 h-11 mb-6 flex-shrink-0">
                 <button type="button" 
-                        id="btn-toggle-cat-sidebar" 
-                        onclick="toggleCategorySidebarCollapse()" 
-                        title="พับ/กางแถบ" 
-                        class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition active:scale-90 cursor-pointer flex-shrink-0">
-                    <svg id="icon-toggle-cat-sidebar" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        onclick="refreshPosScreen(this)" 
+                        title="รีเฟรชหน้าจอ" 
+                        class="w-full h-full rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs flex items-center justify-center text-slate-800 hover:text-slate-950 hover:border-slate-300 transition-all active:scale-90 cursor-pointer">
+                    <svg class="w-[18px] h-[18px] transition-transform duration-300 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                        <rect x="3.5" y="3.5" width="6.8" height="6.8" rx="2.2" />
+                        <rect x="13.7" y="3.5" width="6.8" height="6.8" rx="2.2" />
+                        <rect x="3.5" y="13.7" width="6.8" height="6.8" rx="2.2" />
+                        <rect x="13.7" y="13.7" width="6.8" height="6.8" rx="2.2" />
                     </svg>
                 </button>
+                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full pointer-events-none shadow-2xs"></span>
             </div>
 
-            <!-- ข้อความหัวข้อ -->
-            <div class="px-3 pb-1.5 sidebar-label-text flex items-center justify-between border-b border-slate-100 mb-1">
-                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">หมวดหมู่สินค้า</span>
+            <div class="flex-1 w-full flex flex-col items-center gap-2.5">
+                <!-- หน้าร้าน -->
+                <button type="button" onclick="closePosDrawer()" title="หน้าร้านขายสินค้า"
+                        class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 bg-blue-600 text-white shadow-md shadow-blue-500/30 cursor-pointer">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                    </svg>
+                    <span class="text-[10px] font-bold">หน้าร้าน</span>
+                </button>
+
+                <!-- ลูกหนี้ -->
+                <button type="button" onclick="openPosDrawer('debts.html', 'สมุดบัญชีลูกหนี้')" title="ลูกหนี้"
+                        class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-all active:scale-95 cursor-pointer">
+                    <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                    <span class="text-[10px] font-bold">ลูกหนี้</span>
+                </button>
+
+                <!-- ประวัติ -->
+                <button type="button" onclick="openPosDrawer('history.html', 'ประวัติการขาย')" title="ประวัติบิล"
+                        class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95 cursor-pointer">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-[10px] font-bold">ประวัติ</span>
+                </button>
+
+                <!-- ของต้องซื้อ -->
+                <button type="button" onclick="openPosDrawer('low_stock.html', 'ตรวจเช็คของต้องซื้อ')" title="ของต้องซื้อ"
+                        class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all active:scale-95 cursor-pointer">
+                    <svg class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    <span class="text-[10px] font-bold">ต้องซื้อ</span>
+                </button>
+                <!-- พิมพ์ป้ายบาร์โค้ด/ราคา -->
+                <button type="button" onclick="openPosDrawer('print_tags.html', 'พิมพ์ป้ายสินค้า & บาร์โค้ด')" title="พิมพ์ป้ายสินค้า"
+                        class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 text-slate-500 hover:bg-purple-50 hover:text-purple-600 transition-all active:scale-95 cursor-pointer">
+                    <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    <span class="text-[10px] font-bold">พิมพ์ป้าย</span>
+                </button>
+                <div class="w-8 h-px bg-slate-200/80 my-1"></div>
+
+                <!-- หมวดหมู่ -->
+                <button type="button" onclick="if(typeof openAddCategoryModal === 'function') openAddCategoryModal()" title="จัดการหมวดหมู่"
+                        class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all active:scale-95 cursor-pointer">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                    </svg>
+                    <span class="text-[10px] font-bold">หมวดหมู่</span>
+                </button>
+
+                <!-- รับสต็อก -->
+                <button type="button" onclick="if(typeof openStockInModal === 'function') openStockInModal()" title="รับสต็อกสินค้า"
+                        class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 text-slate-500 hover:bg-sky-50 hover:text-sky-600 transition-all active:scale-95 cursor-pointer">
+                    <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span class="text-[10px] font-bold">รับสต็อก</span>
+                </button>
             </div>
+            <!-- 🌟 ปุ่มสวิตช์คีย์บอร์ดเสมือน (ย้ายมาไว้ล่างสุดของ Sidebar) 🌟 -->
+            <div class="mt-auto pt-3 flex flex-col items-center gap-1 flex-shrink-0">
+                <div class="flex items-center justify-between w-14 sm:w-15 px-1.5 py-1 bg-white border border-slate-200/90 rounded-full shadow-2xs hover:border-slate-300 transition-colors" title="เปิด/ปิด คีย์บอร์ดสัมผัส">
+                    <!-- ไอคอนแป้นพิมพ์ -->
+                    <svg class="w-4 h-4 text-slate-500 flex-shrink-0 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="2" y="5" width="20" height="14" rx="3" />
+                        <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 14h6" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
 
-            <!-- รายการหมวดหมู่ -->
-            <div id="category-bar" class="flex-1 w-full overflow-y-auto no-scrollbar px-2 space-y-1 py-1">
-                <!-- รายการหมวดหมู่จะโหลดมาพร้อมจำนวนสินค้า -->
-            </div>
-
-            <!-- สวิตช์คีย์บอร์ด + เวอร์ชันแอปด้านล่างสุด -->
-            <div class="mt-auto pt-2 flex flex-col items-center gap-1.5 flex-shrink-0 border-t border-slate-100 w-full px-2">
-                
-                <!-- กล่องสวิตช์: ยืด/หดตามสถานะ กาง 140px / พับ 52px -->
-                <div id="keyboard-toggle-box" 
-                     class="flex items-center justify-between px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/90 rounded-full shadow-2xs transition-all" 
-                     title="เปิด/ปิด คีย์บอร์ดสัมผัส">
-                    
-                    <div class="flex items-center gap-1.5 min-w-0">
-                        <!-- ไอคอนแป้นพิมพ์ -->
-                        <svg class="w-3.5 h-3.5 text-slate-500 flex-shrink-0 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                            <rect x="2" y="5" width="20" height="14" rx="3" />
-                            <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 14h6" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <!-- ข้อความแสดงเฉพาะตอนกางออก -->
-                        <span id="keyboard-toggle-text" class="text-[10px] font-bold text-slate-600 truncate select-none">คีย์บอร์ด</span>
-                    </div>
-
-                    <!-- สวิตช์ Toggle -->
-                    <label class="relative inline-flex items-center cursor-pointer select-none flex-shrink-0 ml-1">
+                    <!-- สวิตช์ iOS Toggle -->
+                    <label class="relative inline-flex items-center cursor-pointer select-none">
                         <input type="checkbox" id="sidebar-keyboard-toggle" onchange="togglePosKeyboard(this.checked)" class="sr-only peer">
-                        <div class="w-5 h-3 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[#34C759] transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-2 shadow-inner"></div>                    
+                        <div class="w-6 h-3.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[#34C759] transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-2.5 shadow-inner"></div>                    
                     </label>
                 </div>
-
-                <!-- แสดงเวอร์ชันแอป -->
                 <button type="button" onclick="showChangelogModal()" title="คลิกเพื่อดูรายการอัปเดต" 
-                        class="flex flex-col items-center gap-0.5 group cursor-pointer outline-none">
+                        class="flex flex-col items-center gap-0.5 mt-1 group cursor-pointer outline-none">
                     <div class="flex items-center gap-1">
+                        <!-- ไฟเขียวกระพริบ (จะโชว์เมื่อมีอัปเดตใหม่) -->
                         <span id="update-badge-dot" class="hidden w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span id="app-version-label" class="text-[10px] text-slate-400 group-hover:text-blue-600 font-bold tracking-tight transition-colors">v1.0.14</span>
+                        <span id="app-version-label" class="text-[10px] text-slate-400 group-hover:text-blue-600 font-bold tracking-tight transition-colors">v...</span>
                     </div>
+                    <span id="update-badge-text" class="hidden text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">มีอัปเดต!</span>
                 </button>
             </div>
         </aside>
@@ -548,57 +507,4 @@ function closeChangelogModal() {
     const modal = document.getElementById('pos-changelog-modal');
     if (modal) modal.classList.add('hidden');
 }
-
-function toggleCategorySidebarCollapse() {
-    const sidebar = document.getElementById('ios-sidebar');
-    const headerBox = document.getElementById('sidebar-header-box');
-    const icon = document.getElementById('icon-toggle-cat-sidebar');
-    if (!sidebar) return;
-
-    const isCollapsed = sidebar.classList.contains('w-16');
-
-    if (isCollapsed) {
-        // 🟢 กางออกเต็ม (Expanded Mode: w-48)
-        sidebar.classList.remove('w-16');
-        sidebar.classList.add('w-48');
-        sidebar.classList.remove('is-collapsed');
-        
-        if (headerBox) {
-            headerBox.className = "flex items-center justify-between px-3 mb-2 flex-shrink-0 w-full";
-        }
-        if (icon) icon.classList.remove('rotate-180');
-        
-        localStorage.setItem('pos_sidebar_collapsed', 'false');
-    } else {
-        // 🟢 พับเก็บแคบ (Collapsed Mode: w-16)
-        sidebar.classList.remove('w-48');
-        sidebar.classList.add('w-16');
-        sidebar.classList.add('is-collapsed');
-        
-        if (headerBox) {
-            headerBox.className = "flex flex-col items-center gap-2 mb-2 flex-shrink-0 w-full";
-        }
-        if (icon) icon.classList.add('rotate-180');
-        
-        localStorage.setItem('pos_sidebar_collapsed', 'true');
-    }
-}
-// 🌟 สลับการเปิด/ปิด เมนูระบบหลัก 🌟
-function toggleSidebarSysMenu(forceState) {
-    const menu = document.getElementById('sidebar-sys-dropdown');
-    if (!menu) return;
-    if (typeof forceState === 'boolean') {
-        menu.classList.toggle('hidden', !forceState);
-    } else {
-        menu.classList.toggle('hidden');
-    }
-}
-
-// ปิดป็อปอัปอัตโนมัติเมื่อคลิกพื้นที่ว่าง
-document.addEventListener('click', (e) => {
-    const wrapper = document.getElementById('sidebar-sys-menu-wrapper');
-    if (wrapper && !wrapper.contains(e.target)) {
-        toggleSidebarSysMenu(false);
-    }
-});
 document.addEventListener('DOMContentLoaded', initPosSidebar);

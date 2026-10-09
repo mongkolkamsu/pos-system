@@ -265,6 +265,41 @@ app.post('/api/products/stock-in', async (req, res) => {
     }
 });
 
+// 📦 API ปรับสต็อกสำหรับระบบพักบิล (qty เป็นลบ = ตัดสต็อก / qty เป็นบวก = คืนสต็อก)
+app.post('/api/products/stock-adjust', async (req, res) => {
+    try {
+        const { id, qty } = req.body;
+        const changeQty = parseInt(qty, 10);
+        if (!id || isNaN(changeQty)) {
+            return res.status(400).json({ success: false, message: 'ข้อมูลไม่ถูกต้อง' });
+        }
+
+        const [products] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
+        if (products.length === 0) {
+            return res.status(404).json({ success: false, message: 'ไม่พบสินค้า' });
+        }
+
+        const product = products[0];
+        let targetId = product.id;
+        let totalChange = changeQty;
+
+        // ถ้าเป็นสินค้าแพ็ค/ลัง ให้ไปตัดหรือคืนที่ตัวแม่
+        if (product.parent_id && product.parent_id.trim() !== '' && product.parent_id !== 'null') {
+            const [parents] = await db.query('SELECT * FROM products WHERE id = ?', [product.parent_id]);
+            if (parents.length > 0) {
+                targetId = parents[0].id;
+                totalChange = changeQty * (parseInt(product.multiplier, 10) || 1);
+            }
+        }
+
+        // อัปเดตสต็อก (+ changeQty: ถ้าส่งค่าลบมาจะกลายเป็นการหักลบอัตโนมัติ)
+        await db.query('UPDATE products SET stock_qty = stock_qty + ? WHERE id = ?', [totalChange, targetId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Stock Adjust Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 // ========================================================
 // 🏷️ 5. API จัดการหมวดหมู่ (Categories)
 // ========================================================
@@ -360,16 +395,19 @@ app.post('/api/sales', async (req, res) => {
                 [orderId, item.id, item.name, cost, price, qty]
             );
 
-            const [prodCheck] = await conn.query('SELECT parent_id, multiplier FROM products WHERE id = ?', [item.id]);
-            let targetStockId = item.id;
-            let deductQty = qty;
+            // ⚡ ถ้าชิ้นนี้ถูกตัดสต็อกไปแล้วตั้งแต่ตอนพักบิล (is_held_deducted) ไม่ต้องตัดสต็อกซ้ำ!
+            if (!item.is_held_deducted) {
+                const [prodCheck] = await conn.query('SELECT parent_id, multiplier FROM products WHERE id = ?', [item.id]);
+                let targetStockId = item.id;
+                let deductQty = qty;
 
-            if (prodCheck.length > 0 && prodCheck[0].parent_id) {
-                targetStockId = prodCheck[0].parent_id;
-                deductQty = qty * (parseInt(prodCheck[0].multiplier) || 1);
+                if (prodCheck.length > 0 && prodCheck[0].parent_id) {
+                    targetStockId = prodCheck[0].parent_id;
+                    deductQty = qty * (parseInt(prodCheck[0].multiplier) || 1);
+                }
+
+                await conn.query('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?', [deductQty, targetStockId]);
             }
-
-            await conn.query('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?', [deductQty, targetStockId]);
         }
 
         await conn.commit();

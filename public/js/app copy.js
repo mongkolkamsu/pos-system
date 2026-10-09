@@ -60,17 +60,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     loadModalHTML();
     if (typeof loadPaymentModalHTML === 'function') loadPaymentModalHTML();
-
-    // 🟢 1. โหลดข้อมูลสินค้าเข้าตัวแปรแคชให้เสร็จสมบูรณ์ก่อน
+    await loadAndRenderCategories();
+    
     if (typeof getStoredProducts === 'function') {
         const products = await getStoredProducts();
         if (typeof localProductsCache !== 'undefined') {
             localProductsCache = products;
         }
     }
-    
-    // 🟢 2. เรียกคำนวณและวาดหมวดหมู่พร้อมจำนวนสินค้าหลังจากมีข้อมูลแล้ว
-    await loadAndRenderCategories();
     
     applyProductFilters();
 
@@ -136,7 +133,7 @@ function calculateFitCategoryCount(catBar, customCategories) {
     return Math.max(1, count);
 }
 
-// 🌟 เรนเดอร์รายการหมวดหมู่ พร้อมแสดงจำนวนสินค้าจริง 🌟
+// 🌟 2. ปรับเมนูดรอปดาวน์เป็น right-0 (กางกลับเข้ามาด้านใน ไม่ล้นขอบขวา) 🌟
 async function loadAndRenderCategories() {
     const categories = (typeof getStoredCategories === 'function') ? await getStoredCategories() : [];
     if (typeof localCategoriesCache !== 'undefined') {
@@ -146,120 +143,134 @@ async function loadAndRenderCategories() {
     const catBar = document.getElementById('category-bar');
     if (!catBar) return;
 
-    // ดึงสินค้าจากตัวแปรแคช
-    const prods = (typeof localProductsCache !== 'undefined' && Array.isArray(localProductsCache)) 
-        ? localProductsCache 
-        : [];
+    const customCategories = categories.filter(c => c.label_name !== 'รายการที่ไม่มีบาร์โค้ด' && c.key_name !== 'no_barcode');
 
-    const totalCount = prods.length;
-    const noBarcodeCount = prods.filter(p => p.is_no_barcode == 1 || p.is_no_barcode === '1' || p.is_no_barcode === true).length;
+    const maxShortcuts = calculateFitCategoryCount(catBar, customCategories);
+    const topShortcutCategories = customCategories.slice(0, maxShortcuts);
+    const otherCategories = customCategories.slice(maxShortcuts);
 
-    // รวบรวมตัวนับสินค้าในแต่ละหมวดหมู่
-    const catCountMap = {};
-    prods.forEach(p => {
-        const catVal = String(p.category || '').trim();
-        if (catVal) {
-            catCountMap[catVal] = (catCountMap[catVal] || 0) + 1;
-        }
-    });
+    let shortcutButtonsHtml = topShortcutCategories.map(c => `
+        <button type="button" data-cat="${c.key_name}" 
+                onclick="filterCategory('${c.key_name}', this)"
+                class="cat-btn px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-medium bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 transition active:scale-95 whitespace-nowrap cursor-pointer flex-shrink-0">
+            ${c.label_name}
+        </button>
+    `).join('');
 
-    const customCategories = categories
-        .filter(c => c.label_name !== 'รายการที่ไม่มีบาร์โค้ด' && c.key_name !== 'no_barcode')
-        .sort((a, b) => (parseInt(a.sort_order) || 0) - (parseInt(b.sort_order) || 0));
-
-    let itemIndex = 1;
-
-    let customHtml = customCategories.map(c => {
-        // นับทั้งจาก key_name (cat_xxx) และ label_name (ชื่อภาษาไทย)
-        const count = (catCountMap[c.key_name] || 0) + (c.label_name !== c.key_name ? (catCountMap[c.label_name] || 0) : 0);
-        const currentNum = ++itemIndex;
-        
-        return `
-            <div data-cat="${c.key_name}" 
-                 onclick="filterCategory('${c.key_name}', this)"
-                 title="${c.label_name} (${count} ชิ้น)"
-                 class="cat-item w-full px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer flex items-center justify-between select-none">
-                
-                <!-- เลขลำดับหมวดหมู่ (แสดงเฉพาะตอนพับเก็บ) -->
-                <span class="cat-order-num bg-slate-100 text-slate-600 border border-slate-200/80">${currentNum}</span>
-
-                <!-- ข้อมูลเต็ม (แสดงตอนกางออก) -->
-                <div class="cat-full-info flex items-center justify-between w-full min-w-0">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="dot-indicator w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0"></span>
-                        <span class="truncate">${c.label_name}</span>
-                    </div>
-                    <span class="cat-count-badge text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md flex-shrink-0 ml-1.5">${count}</span>
-                </div>
+    // ⚡ ตัดไอคอน ✓ ออก เหลือเฉพาะข้อความชื่อหมวดหมู่
+    let dropdownItemsHtml = '';
+    if (otherCategories.length > 0) {
+        dropdownItemsHtml = otherCategories.map(c => `
+            <div data-dropdown-cat="${c.key_name}" 
+                 onclick="selectCategoryDropdown('${c.key_name}', '${(c.label_name || '').replace(/'/g, "\\'")}')" 
+                 class="dropdown-cat-item px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium text-xs sm:text-sm cursor-pointer transition border-b border-slate-100/60 last:border-b-0 whitespace-nowrap">
+                <span>${c.label_name}</span>
             </div>
-        `;
-    }).join('');
+        `).join('');
+    }
+
+    catBar.className = "flex items-center gap-1.5 w-full relative z-30 py-1 mb-1 flex-shrink-0 select-none";
 
     catBar.innerHTML = `
-        <!-- ลำดับที่ 0: ทั้งหมด -->
-        <div data-cat="all" 
-             onclick="filterCategory('all', this)"
-             title="ทั้งหมด (${totalCount} ชิ้น)"
-             class="cat-item w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-between select-none">
-            
-            <span class="cat-order-num bg-blue-700/80 text-white border border-blue-400/40">★</span>
+        <button type="button" id="cat-btn-all" data-cat="all"
+                onclick="filterCategory('all', this)"
+                class="cat-btn px-4 py-1.5 rounded-2xl text-xs sm:text-sm font-bold bg-blue-600 text-white shadow-2xs transition active:scale-95 whitespace-nowrap cursor-pointer flex-shrink-0">
+            ทั้งหมด
+        </button>
 
-            <div class="cat-full-info flex items-center justify-between w-full min-w-0">
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="dot-indicator w-1.5 h-1.5 rounded-full bg-white flex-shrink-0"></span>
-                    <span class="truncate">ทั้งหมด</span>
-                </div>
-                <span class="cat-count-badge text-[10px] font-bold text-blue-100 bg-blue-700/60 px-1.5 py-0.5 rounded-md flex-shrink-0 ml-1.5">${totalCount}</span>
+        <button type="button" id="cat-btn-no-barcode" data-cat="no_barcode"
+                onclick="filterCategory('no_barcode', this)"
+                class="cat-btn px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-medium bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 transition active:scale-95 whitespace-nowrap cursor-pointer flex-shrink-0">
+            รายการที่ไม่มีบาร์โค้ด
+        </button>
+
+        ${shortcutButtonsHtml}
+
+        ${otherCategories.length > 0 ? `
+        <div id="more-cat-wrapper" class="relative flex-shrink-0 flex items-center">
+            <button type="button" id="more-cat-btn" onclick="toggleMoreCatDropdown()" 
+                    class="cat-btn pl-3.5 pr-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-2xl text-xs sm:text-sm font-medium text-slate-700 shadow-2xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap flex-shrink-0">
+                <span id="more-cat-label" class="whitespace-nowrap translate-y-[1px]">หมวดหมู่อื่นๆ</span>
+                <svg id="more-cat-arrow" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <div id="more-cat-menu" class="hidden absolute right-0 top-full mt-1.5 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1 min-w-[200px] max-h-60 overflow-y-auto">
+                ${dropdownItemsHtml}
             </div>
         </div>
-
-        <!-- ลำดับที่ 1: รายการที่ไม่มีบาร์โค้ด -->
-        <div data-cat="no_barcode" 
-             onclick="filterCategory('no_barcode', this)"
-             title="ไม่มีบาร์โค้ด (${noBarcodeCount} ชิ้น)"
-             class="cat-item w-full px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer flex items-center justify-between select-none">
-            
-            <span class="cat-order-num bg-slate-100 text-slate-600 border border-slate-200/80">1</span>
-
-            <div class="cat-full-info flex items-center justify-between w-full min-w-0">
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="dot-indicator w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0"></span>
-                    <span class="truncate">ไม่มีบาร์โค้ด</span>
-                </div>
-                <span class="cat-count-badge text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md flex-shrink-0 ml-1.5">${noBarcodeCount}</span>
-            </div>
-        </div>
-
-        ${customHtml}
+        ` : ''}
     `;
 
     updateActiveCategoryHighlight();
 }
 
-// 🌟 อัปเดตสีสถานะเมื่อเลือกหมวด 🌟
-function updateActiveCategoryHighlight() {
-    const activeClass = "cat-item w-full px-2.5 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center justify-between select-none";
-    const inactiveClass = "cat-item w-full px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer flex items-center justify-between select-none";
+// 🌟 3. ตัดคำว่า "หมวด: " ออก และคุมความกว้างไม่ให้เกินโควตา 150px 🌟
+function updateActiveCategoryHighlight(btnElement = null, isDropdown = false, labelName = '') {
+    const inactiveClass = "cat-btn px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-medium bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 transition active:scale-95 whitespace-nowrap cursor-pointer flex-shrink-0";
+    const activeClass = "cat-btn px-4 py-1.5 rounded-2xl text-xs sm:text-sm font-bold bg-blue-600 text-white shadow-2xs transition active:scale-95 whitespace-nowrap cursor-pointer flex-shrink-0";
 
-    document.querySelectorAll('#category-bar .cat-item').forEach(el => {
-        const cat = el.getAttribute('data-cat');
-        const dot = el.querySelector('.dot-indicator');
-        const badge = el.querySelector('.cat-count-badge');
-        const orderNum = el.querySelector('.cat-order-num');
-
-        if (cat === currentCategory) {
-            el.className = activeClass;
-            if (dot) dot.className = "dot-indicator w-1.5 h-1.5 rounded-full bg-white flex-shrink-0";
-            if (badge) badge.className = "cat-count-badge text-[10px] font-bold text-blue-100 bg-blue-700/60 px-1.5 py-0.5 rounded-md flex-shrink-0 ml-1.5";
-            if (orderNum) orderNum.className = "cat-order-num bg-white text-blue-600 shadow-xs";
-        } else {
-            el.className = inactiveClass;
-            if (dot) dot.className = "dot-indicator w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0";
-            if (badge) badge.className = "cat-count-badge text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md flex-shrink-0 ml-1.5";
-            if (orderNum) orderNum.className = "cat-order-num bg-slate-100 text-slate-600 border border-slate-200/80";
-        }
+    // รีเซ็ตปุ่มลัดด้านนอก
+    document.querySelectorAll('#category-bar button.cat-btn').forEach(btn => {
+        btn.className = inactiveClass;
     });
+
+    // รีเซ็ตไฮไลต์ในดรอปดาวน์ทั้งหมด
+    document.querySelectorAll('#more-cat-menu .dropdown-cat-item').forEach(item => {
+        item.classList.remove('bg-blue-50', 'text-blue-600', 'font-bold');
+        item.classList.add('text-slate-700', 'font-medium');
+    });
+
+    const moreBtn = document.getElementById('more-cat-btn');
+    const moreLabel = document.getElementById('more-cat-label');
+    const moreArrow = document.getElementById('more-cat-arrow');
+
+    if (moreLabel) {
+        moreLabel.className = "whitespace-nowrap translate-y-[1px]";
+        moreLabel.innerText = "หมวดหมู่อื่นๆ";
+    }
+    if (moreArrow) moreArrow.className = "w-3.5 h-3.5 text-slate-400 transition-transform duration-200 pointer-events-none flex-shrink-0";
+
+    if (currentCategory === 'all') {
+        const btnAll = document.getElementById('cat-btn-all');
+        if (btnAll) btnAll.className = activeClass;
+        if (moreBtn) moreBtn.className = "cat-btn pl-3.5 pr-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-2xl text-xs sm:text-sm font-medium text-slate-700 shadow-2xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap flex-shrink-0";
+    } else if (currentCategory === 'no_barcode') {
+        const btnNoBarcode = document.getElementById('cat-btn-no-barcode');
+        if (btnNoBarcode) btnNoBarcode.className = activeClass;
+        if (moreBtn) moreBtn.className = "cat-btn pl-3.5 pr-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-2xl text-xs sm:text-sm font-medium text-slate-700 shadow-2xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap flex-shrink-0";
+    } else {
+        const targetBtn = document.querySelector(`#category-bar button.cat-btn[data-cat="${currentCategory}"]`);
+        if (targetBtn) {
+            targetBtn.className = activeClass;
+            if (moreBtn) moreBtn.className = "cat-btn pl-3.5 pr-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-2xl text-xs sm:text-sm font-medium text-slate-700 shadow-2xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap flex-shrink-0";
+        } else if (moreBtn) {
+            moreBtn.className = "cat-btn pl-3.5 pr-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-2xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap flex-shrink-0";
+            if (moreArrow) moreArrow.className = "w-3.5 h-3.5 text-white transition-transform duration-200 pointer-events-none flex-shrink-0";
+
+            let displayLabel = labelName;
+            if (!displayLabel && typeof localCategoriesCache !== 'undefined') {
+                const found = localCategoriesCache.find(c => c.key_name === currentCategory);
+                if (found) displayLabel = found.label_name;
+            }
+
+            if (moreLabel) {
+                moreLabel.className = "truncate max-w-[115px] sm:max-w-[130px] whitespace-nowrap translate-y-[1px]";
+                moreLabel.innerText = displayLabel || "หมวดหมู่อื่นๆ";
+                if (moreBtn) moreBtn.title = displayLabel || "หมวดหมู่อื่นๆ";
+            }
+
+            // ⚡ สลับแถบสีฟ้าอ่อนและตัวอักษรสีฟ้าเข้มให้รายการที่เลือก
+            const activeDropdownItem = document.querySelector(`#more-cat-menu [data-dropdown-cat="${currentCategory}"]`);
+            if (activeDropdownItem) {
+                activeDropdownItem.classList.remove('text-slate-700', 'font-medium');
+                activeDropdownItem.classList.add('bg-blue-50', 'text-blue-600', 'font-bold');
+            }
+        }
+    }
 }
+
 // ปรับจำนวนปุ่มอัตโนมัติเวลากด ย่อ/ขยาย หน้าจอ
 let resizeCatTimer = null;
 window.addEventListener('resize', () => {
@@ -447,42 +458,22 @@ function setupSearchProductEnter() {
     searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            clearTimeout(searchDebounceTimer);
-
-            const rawVal = searchInput.value.trim();
-            if (rawVal) {
-                // ⚡ แปลงแป้นภาษาไทยเป็นตัวเลขบาร์โค้ดทันทีเมื่อยิงบาร์โค้ด
-                const converted = checkAndFixThaiBarcode(rawVal);
-                if (converted !== rawVal) {
-                    searchInput.value = converted; // แทนที่ค่าในกล่อง input ให้เป็นตัวเลขจริง
-                }
+            clearTimeout(searchDebounceTimer); // ⚡ ยกเลิกตัวจับเวลาค้นหา ไม่ให้ยิงคำสั่งซ้ำซ้อน
+            const fixed = checkAndFixThaiBarcode(searchInput.value);
+            if (fixed !== searchInput.value) {
+                searchInput.value = fixed;
             }
-
-            // สั่งค้นหาและกรองสินค้าทันที
             applyProductFilters();
         }
     });
 }
-
-// 🌟 1. ฟังก์ชันตัวช่วยปรับแต่งข้อความค้นหาภาษาไทยให้ยืดหยุ่น 🌟
-function cleanSearchText(str) {
-    if (!str) return '';
-    return String(str)
-        .toLowerCase()
-        .replace(/เเ/g, 'แ')              // แปลงสระเอสองตัวเป็นสระแอ
-        .replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '') // ตัดวรรณยุกต์/สระบน-ล่างออก เพื่อให้พิมพ์ผิดวรรณยุกต์ก็ยังค้นเจอ
-        .replace(/\s+/g, '')             // ตัดช่องว่างเว้นวรรค
-        .trim();
-}
-
-// 🌟 2. อัปเดตฟังก์ชันกรองและค้นหาสินค้า 🌟
 function applyProductFilters(resetLimit = true) {
-    if (resetLimit) visibleProductLimit = 40;
-    
+    if (resetLimit) visibleProductLimit = 40; // รีเซ็ตกลับเป็น 40 เมื่อเริ่มค้นหาใหม่
+    const normalizeThai = (str) => String(str || '').toLowerCase().replace(/เเ/g, 'แ');
     const searchInput = document.getElementById('search-product');
-    const rawInput = (searchInput?.value || '').trim();
-    const rawLower = rawInput.toLowerCase();
-    const cleanKeyword = cleanSearchText(rawInput);
+    const rawKeyword = (searchInput?.value || '').trim();
+    const keyword = normalizeThai(rawKeyword);
+    const convertedBarcode = typeof cleanBarcodeString === 'function' ? cleanBarcodeString(rawKeyword) : '';
     const unitKeyword = document.getElementById('search-unit')?.value.toLowerCase().trim() || '';
     
     const sourceProducts = (typeof localProductsCache !== 'undefined' && Array.isArray(localProductsCache)) 
@@ -496,7 +487,6 @@ function applyProductFilters(resetLimit = true) {
         return;
     }
 
-    // จัดการ Catalog Index เดิม
     const currentIds = sourceProducts.map(p => String(p.id).trim());
     let savedIndexMap = JSON.parse(localStorage.getItem('pos_catalog_indexes') || '{}');
 
@@ -529,57 +519,39 @@ function applyProductFilters(resetLimit = true) {
         _catalogIndex: savedIndexMap[String(p.id).trim()] || 1
     }));
 
-    // กรองสินค้า
     let filtered = indexedProducts.filter(p => {
         if (!p) return false;
 
-        // 🎯 1. กรองตามหมวดหมู่ (ถ้ามีการพิมพ์คำค้นหา ให้ค้นหาจากทุกหมวดหมู่อัตโนมัติ เพื่อไม่ให้คำตอบหาย)
-        if (!rawInput) {
-            if (currentCategory === 'no_barcode') {
-                if (!(p.is_no_barcode == 1 || p.is_no_barcode === '1' || p.is_no_barcode === true)) return false;
-            } else if (currentCategory !== 'all') {
-                if (p.category !== currentCategory && p.category !== currentCategory) return false;
-            }
+        if (currentCategory === 'no_barcode') {
+            if (!(p.is_no_barcode == 1 || p.is_no_barcode === '1' || p.is_no_barcode === true)) return false;
+        } else if (currentCategory !== 'all') {
+            if (p.category !== currentCategory) return false;
         }
 
-        // 🎯 2. กรองตามหน่วยนับ
         if (unitKeyword) {
             const unitText = String(p.unit || 'ชิ้น').toLowerCase();
             if (!unitText.includes(unitKeyword)) return false;
         }
 
-        // 🎯 3. การค้นหาคำสำคัญ (Search Matching)
-        if (rawInput) {
-            // ค้นด้วย #ลำดับสินค้า เช่น #644
-            if (rawInput.startsWith('#')) {
-                const targetIndexStr = rawInput.replace(/#/g, '').trim();
+        if (keyword) {
+            if (rawKeyword.startsWith('#')) {
+                const targetIndexStr = rawKeyword.replace(/#/g, '').trim();
                 if (!targetIndexStr) return true; 
                 const currentIndexStr = String(p._catalogIndex || '');
                 return currentIndexStr === targetIndexStr || currentIndexStr.startsWith(targetIndexStr);
             }
 
-            const pNameClean = cleanSearchText(p.name);
-            const pNameRaw = String(p.name || '').toLowerCase();
-            const pIdStr = String(p.id || '').trim().toLowerCase();
+            const name = normalizeThai(p.name || '');
+            const idStr = String(p.id || '').trim().toLowerCase();
+            const matchName = name.includes(keyword);
+            const matchBarcode = idStr.includes(keyword) || (convertedBarcode && idStr.includes(convertedBarcode));
 
-            // ตรวจสอบทั้งชื่อเต็ม, ชื่อตัดวรรณยุกต์, รหัสบาร์โค้ดตรงๆ, และบาร์โค้ดแปลงแป้นไทย
-            const matchName = pNameRaw.includes(rawLower) || pNameClean.includes(cleanKeyword);
-            const matchBarcode = pIdStr.includes(rawLower) || pIdStr.includes(rawInput);
-
-            // รองรับกรณีแป้นพิมพ์ค้างเป็นภาษาไทยขณะยิงบาร์โค้ด
-            let convertedBarcode = '';
-            if (typeof checkAndFixThaiBarcode === 'function') {
-                convertedBarcode = checkAndFixThaiBarcode(rawInput);
-            }
-            const matchConvertedBarcode = convertedBarcode && pIdStr.includes(convertedBarcode.toLowerCase());
-
-            if (!matchName && !matchBarcode && !matchConvertedBarcode) return false;
+            if (!matchName && !matchBarcode) return false;
         }
 
         return true;
     });
 
-    // เรียงลำดับ
     if (currentSort === 'latest') {
         filtered.sort((a, b) => (b._catalogIndex || 0) - (a._catalogIndex || 0));
     } else if (currentSort === 'index') {
@@ -598,11 +570,13 @@ function applyProductFilters(resetLimit = true) {
 
     currentFilteredProducts = filtered;
 
+    // 🌟 ตัดยอดเอาเฉพาะ 40 ชิ้นแรกไปวาดบนหน้าจอ 🌟
     const paginatedProducts = filtered.slice(0, visibleProductLimit);
 
     isInternalRendering = true;
     renderProductsHTML(paginatedProducts);
     
+    // อัปเดตตัวเลขหัวข้อให้แสดงจำนวนสินค้าทั้งหมดที่ค้นเจอ (เช่น 692)
     const countEl = document.getElementById('product-count');
     if (countEl) countEl.innerText = `${filtered.length}`;
     
@@ -640,23 +614,7 @@ function renderProductsHTML(productList) {
             productStockMap.set(String(p.id).trim(), parseInt(p.stock_qty) || 0);
         }
     });
-    const cartQtyMap = new Map();
-    if (typeof cart !== 'undefined' && Array.isArray(cart)) {
-        cart.forEach(cItem => {
-            const cId = String(cItem.id).trim();
-            const cQty = parseInt(cItem.qty) || 0;
-            
-            // สะสมยอดของตัวเอง
-            cartQtyMap.set(cId, (cartQtyMap.get(cId) || 0) + cQty);
 
-            // ถ้าชิ้นในตะกร้าเป็นแพ็ค ให้ไปหักสต็อกตัวแม่ด้วย
-            if (cItem.parent_id) {
-                const parentId = String(cItem.parent_id).trim();
-                const multiplier = parseInt(cItem.multiplier) || 1;
-                cartQtyMap.set(parentId, (cartQtyMap.get(parentId) || 0) + (cQty * multiplier));
-            }
-        });
-    }
     const htmlCards = productList.map(item => {
         if (!item) return '';
 
@@ -680,16 +638,8 @@ function renderProductsHTML(productList) {
         let stock = parseInt(item.stock_qty) || 0;
         if (item.parent_id) {
             const parentStock = productStockMap.get(String(item.parent_id).trim()) || 0;
-            const parentInCart = cartQtyMap.get(String(item.parent_id).trim()) || 0;
             const multiplier = parseInt(item.multiplier) > 0 ? parseInt(item.multiplier) : 1;
-            
-            // สต็อกตัวแม่ที่เหลือจริง = สต็อกเดิม - ของที่อยู่ในตะกร้า
-            const realParentStock = Math.max(0, parentStock - parentInCart);
-            stock = Math.floor(realParentStock / multiplier);
-        } else {
-            // สินค้าเดี่ยว: สต็อกที่เหลือจริง = สต็อกเดิม - ของที่อยู่ในตะกร้า
-            const inCart = cartQtyMap.get(String(item.id).trim()) || 0;
-            stock = Math.max(0, stock - inCart);
+            stock = Math.floor(parentStock / multiplier);
         }
         
         const priceNum = parseFloat(item.price) || 0;
@@ -777,22 +727,6 @@ function selectCategoryDropdown(catKey, catLabel) {
 
 async function filterCategory(category, btnElement, isDropdown = false, labelName = '') {
     currentCategory = category || 'all';
-
-    // 🟢 หาชื่อภาษาไทยของหมวดหมู่เพื่อไปแสดงบนหัวข้อ
-    let displayTitle = 'ทั้งหมด';
-    if (currentCategory === 'no_barcode') {
-        displayTitle = 'ไม่มีบาร์โค้ด';
-    } else if (currentCategory !== 'all') {
-        const catList = (typeof localCategoriesCache !== 'undefined') ? localCategoriesCache : [];
-        const found = catList.find(c => c.key_name === currentCategory);
-        displayTitle = labelName || (found ? found.label_name : currentCategory);
-    }
-
-    const titleEl = document.getElementById('current-category-title');
-    if (titleEl) {
-        titleEl.innerText = displayTitle;
-    }
-
     updateActiveCategoryHighlight(btnElement, isDropdown, labelName);
     applyProductFilters();
 }
@@ -807,8 +741,15 @@ document.addEventListener('click', (e) => {
 function handleProductSearchInput(e) {
     clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(() => {
+        const searchInput = document.getElementById('search-product');
+        if (searchInput && searchInput.value) {
+            const fixed = checkAndFixThaiBarcode(searchInput.value);
+            if (fixed !== searchInput.value) {
+                searchInput.value = fixed; // ⚡ แปลงตัวอักษรภาษาไทยในช่องค้นหาเป็นตัวเลขอัตโนมัติ
+            }
+        }
         applyProductFilters();
-    }, 120);
+    }, 100);
 }
 
 document.getElementById('search-product')?.addEventListener('input', handleProductSearchInput);

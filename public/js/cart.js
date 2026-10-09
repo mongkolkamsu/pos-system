@@ -125,7 +125,7 @@ function addToCart(productId, customQty = 1) {
     if (typeof refocusBarcode === 'function') refocusBarcode();
 }
 
-function updateCartQty(productId, change) {
+async function updateCartQty(productId, change) {
     const cartItem = cart.find(item => String(item.id).trim() === String(productId).trim());
     if (!cartItem) return;
 
@@ -147,6 +147,9 @@ function updateCartQty(productId, change) {
                 return;
             }
         }
+    } else if (change < 0 && cartItem.isHeldDeducted) {
+        // ⚡ ถ้าน้อยลง 1 ชิ้นและเป็นสินค้าจากบิลพัก ให้คืนสต็อกกลับเข้าคลัง 1 ชิ้น
+        await adjustStockForHeldBill([{ id: cartItem.id, qty: 1 }], true);
     }
 
     cartItem.qty += change;
@@ -154,24 +157,36 @@ function updateCartQty(productId, change) {
     if (cartItem.qty <= 0) {
         removeFromCart(productId);
     } else {
-        saveCartToStorage(); // 💾 บันทึกตะกร้า
+        saveCartToStorage();
         renderCart();
     }
 }
 
-function removeFromCart(productId) {
+// 🟢 ลบสินค้าออกจากตะกร้า (ถ้าเป็นสินค้าจากบิลพัก จะคืนสต็อกอัตโนมัติ)
+async function removeFromCart(productId) {
+    const itemToRemove = cart.find(item => String(item.id).trim() === String(productId).trim());
+    if (itemToRemove && itemToRemove.isHeldDeducted) {
+        // ⚡ คืนสต็อกกลับเข้าคลัง
+        await adjustStockForHeldBill([itemToRemove], true);
+    }
+
     cart = cart.filter(item => String(item.id).trim() !== String(productId).trim());
-    saveCartToStorage(); // 💾 บันทึกตะกร้า
+    saveCartToStorage();
     renderCart();
 }
-
 async function clearCart() {
     if (cart.length === 0) return;
     
     const confirmed = await showCustomModal('confirm', 'ล้างรายการคิดเงิน?', 'คุณต้องการล้างรายการสินค้าทั้งหมดในตะกร้าใช่หรือไม่?');
     if (confirmed) {
+        // คืนสต็อกเฉพาะไอเทมที่ถูกตัดไปแล้วตอนพักบิล
+        const heldItems = cart.filter(item => item.isHeldDeducted);
+        if (heldItems.length > 0) {
+            await adjustStockForHeldBill(heldItems, true);
+        }
+
         cart = [];
-        saveCartToStorage(); // 💾 ล้างข้อมูลออกจาก LocalStorage
+        saveCartToStorage();
         renderCart();
     }
 }
@@ -188,7 +203,6 @@ function renderCart() {
 
     // 🌟 กรณีไม่มีสินค้าในตะกร้า 🌟
     if (cart.length === 0) {
-        // 1. บังคับตารางให้สูงเต็มพื้นที่พอดี และปิดแถบเลื่อนไม่ให้โผล่มากวนใจ
         if (tableEl) tableEl.style.setProperty('height', '100%', 'important');
         if (scrollWrapper) scrollWrapper.style.setProperty('overflow-y', 'hidden', 'important');
 
@@ -212,7 +226,13 @@ function renderCart() {
         if (totalQtyEl) totalQtyEl.innerText = '0 รายการ';
         
         if (typeof updateCartSummary === 'function') updateCartSummary();
-        return;
+
+        // 🟢 เพิ่มบรรทัดนี้: อัปเดตคืนสต็อกให้การ์ดสินค้าฝั่งซ้ายทันทีแม้ตะกร้าจะว่างเปล่า!
+        if (typeof applyProductFilters === 'function') {
+            applyProductFilters(false);
+        }
+
+        return; // ค่อย return ตรงนี้
     }
 
     // 🌟 เมื่อมีสินค้า: คืนค่าเดิมให้ตารางขยายและเลื่อนดูรายการสินค้าได้ตามปกติ 🌟
@@ -293,6 +313,11 @@ function renderCart() {
     if (totalQtyEl) totalQtyEl.innerText = `${cart.length} รายการ (${totalItemsCount} ชิ้น/หน่วยรวม)`;
 
     if (typeof updateCartSummary === 'function') updateCartSummary();
+
+    // 🟢 สั่งรีเรนเดอร์ตัวเลขสต็อกบนการ์ดสินค้าฝั่งซ้ายแบบเรียลไทม์ทันที
+    if (typeof applyProductFilters === 'function') {
+        applyProductFilters(false);
+    }
 }
 
 // =========================================================================
@@ -331,7 +356,36 @@ function updateHeldBillsBadge() {
     }
 }
 
-function holdCurrentBill() {
+// 🟢 ฟังก์ชันช่วยตัด/คืนสต็อกสำหรับระบบพักบิล
+// 🟢 ฟังก์ชันช่วยตัด/คืนสต็อกสำหรับระบบพักบิล
+async function adjustStockForHeldBill(items, isReturn = false) {
+    if (!items || items.length === 0) return;
+    try {
+        // isReturn = true (คืนสต็อก/ค่าบวก), isReturn = false (ตัดสต็อก/ค่าลบ)
+        const requests = items.map(item => {
+            const qtyChange = isReturn ? Math.abs(item.qty) : -Math.abs(item.qty);
+            return fetch('/api/products/stock-adjust', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: item.id,
+                    qty: qtyChange
+                })
+            }).then(r => r.json());
+        });
+
+        await Promise.all(requests);
+        
+        // รีเฟรชข้อมูลสินค้าบนหน้าจอ POS ให้ตัวเลขลดลง/เพิ่มขึ้นทันที
+        if (typeof getStoredProducts === 'function') await getStoredProducts();
+        if (typeof filterCategory === 'function') filterCategory(currentCategory);
+    } catch (e) {
+        console.error('Error adjusting stock for held bill:', e);
+    }
+}
+
+// 1. ตอนกดพักบิล -> ตัดสต็อกทันที
+async function holdCurrentBill() {
     if (!cart || cart.length === 0) {
         if (typeof showCustomModal === 'function') {
             showCustomModal('warning', 'ไม่มีรายการสินค้า', 'กรุณาเพิ่มสินค้าลงตะกร้าก่อนทำรายการพักบิล');
@@ -355,6 +409,9 @@ function holdCurrentBill() {
         totalItems: totalItems
     };
 
+    // ⚡ ตัดสต็อกสินค้าที่พักไว้ทันที
+    await adjustStockForHeldBill(cart, false);
+
     bills.unshift(newBill);
     saveHeldBills(bills);
 
@@ -363,7 +420,7 @@ function holdCurrentBill() {
     renderCart();
 
     if (typeof showCustomModal === 'function') {
-        showCustomModal('success', 'พักบิลเรียบร้อย', `พักรายการสินค้า ${totalItems} ชิ้น (฿${totalPrice.toLocaleString()}) เรียบร้อยแล้ว`);
+        showCustomModal('success', 'พักบิลเรียบร้อย', `พักรายการสินค้า ${totalItems} ชิ้น (ตัดสต็อกแล้ว) เรียบร้อย`);
     }
 }
 
@@ -435,19 +492,28 @@ function closeHeldBillsModal() {
     if (modal) modal.classList.add('hidden');
 }
 
-function recallBill(billId) {
+// 3. ตอนดึงบิลกลับมาคิดเงิน
+// 3. ตอนดึงบิลกลับมาคิดเงิน
+async function recallBill(billId) {
     let bills = getHeldBills();
     const targetIndex = bills.findIndex(b => b.id === billId);
     if (targetIndex === -1) return;
 
     const targetBill = bills[targetIndex];
 
+    // ถ้าหน้าจอมีของในตะกร้าค้างอยู่ ให้สลับไปเป็นบิลพัก
     if (cart && cart.length > 0) {
+        // กรองเอาเฉพาะชิ้นที่ยังไม่เคยถูกตัดสต็อก เพื่อตัดสต็อกก่อนพัก
+        const itemsToDeduct = cart.filter(item => !item.isHeldDeducted);
+        if (itemsToDeduct.length > 0) {
+            await adjustStockForHeldBill(itemsToDeduct, false);
+        }
+
         const now = new Date();
         const currentBillToHold = {
             id: 'HOLD_' + Date.now(),
             heldAt: now.toLocaleDateString('th-TH', { day: '2-digit', month: 'short' }) + ' ' + now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-            items: [...cart],
+            items: cart.map(item => ({ ...item, isHeldDeducted: true })),
             totalPrice: cart.reduce((sum, item) => sum + (item.price * item.qty), 0),
             totalItems: cart.reduce((sum, item) => sum + item.qty, 0)
         };
@@ -458,18 +524,34 @@ function recallBill(billId) {
 
     saveHeldBills(bills);
 
-    cart = [...targetBill.items];
+    // ⚡ นำของที่พักไว้กลับเข้าตะกร้า พร้อมติดแฟล็ก isHeldDeducted: true
+    cart = targetBill.items.map(item => ({
+        ...item,
+        isHeldDeducted: true
+    }));
+    
     saveCartToStorage();
     renderCart();
 
     closeHeldBillsModal();
 }
 
-function deleteHeldBill(billId) {
+async function deleteHeldBill(billId) {
     let bills = getHeldBills();
+    const targetBill = bills.find(b => b.id === billId);
+    
+    if (targetBill && targetBill.items) {
+        // ⚡ คืนสต็อกของทุกชิ้นในบิลนี้กลับเข้าคลัง
+        await adjustStockForHeldBill(targetBill.items, true);
+    }
+
     bills = bills.filter(b => b.id !== billId);
     saveHeldBills(bills);
     openHeldBillsModal();
+
+    if (typeof showCustomModal === 'function') {
+        showCustomModal('success', 'ยกเลิกบิลพัก', 'ยกเลิกบิลและนำสินค้าคืนเข้าสต็อกเรียบร้อยแล้ว');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
